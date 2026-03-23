@@ -3,6 +3,11 @@
  *
  * Implements the exact contrast ratio calculation algorithm as specified in Colors.md
  * This tool ensures accurate accessibility analysis by following WCAG guidelines precisely.
+ *
+ * Supported color formats:
+ * - Hex: #rgb, #rrggbb, #rgba, #rrggbbaa
+ * - RGB: rgb(r, g, b) / rgba(r, g, b, a)
+ * - HSL: hsl(h, s%, l%) / hsla(h, s%, l%, a)
  */
 
 export interface ContrastResult {
@@ -19,64 +24,155 @@ export interface ContrastResult {
   recommendation: string;
 }
 
+interface ParsedColor {
+  r: number;
+  g: number;
+  b: number;
+  a: number; // 0–1
+}
+
 /**
- * Convert hex color to RGB values (0-255)
+ * Convert hex string to RGBA values
  */
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  // Remove # if present
+function hexToRgba(hex: string): ParsedColor | null {
   hex = hex.replace('#', '');
 
-  // Handle 3-digit hex
   if (hex.length === 3) {
-    hex = hex.split('').map(char => char + char).join('');
+    hex = hex.split('').map(c => c + c).join('');
+  }
+  if (hex.length === 4) {
+    hex = hex.split('').map(c => c + c).join('');
   }
 
-  // Validate hex format
-  if (hex.length !== 6 || !/^[0-9A-Fa-f]{6}$/.test(hex)) {
-    return null;
+  if (hex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(hex)) {
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16),
+      a: parseInt(hex.substring(6, 8), 16) / 255,
+    };
   }
 
+  if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16),
+      a: 1,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Convert HSL (h: 0-360, s: 0-1, l: 0-1) to RGB (0-255)
+ */
+function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60)       { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else              { r = c; g = 0; b = x; }
   return {
-    r: parseInt(hex.substr(0, 2), 16),
-    g: parseInt(hex.substr(2, 2), 16),
-    b: parseInt(hex.substr(4, 2), 16)
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
   };
 }
 
 /**
- * Convert RGB channel to sRGB linear value
- * Implements the exact formula from Colors.md Section 1.1
+ * Parse any supported CSS color string into RGBA components.
+ * Supports: #hex, rgb(), rgba(), hsl(), hsla()
+ */
+function parseColor(color: string): ParsedColor | null {
+  const s = color.trim();
+
+  // Hex
+  if (s.startsWith('#') || /^[0-9A-Fa-f]{3,8}$/.test(s)) {
+    return hexToRgba(s);
+  }
+
+  // rgb() / rgba() — legacy comma syntax and modern space syntax
+  const rgbMatch = s.match(
+    /^rgba?\(\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
+  );
+  if (rgbMatch) {
+    const parse = (v: string, max: number) =>
+      v.endsWith('%') ? (parseFloat(v) / 100) * max : parseFloat(v);
+    const a = rgbMatch[4] !== undefined
+      ? (rgbMatch[4].endsWith('%') ? parseFloat(rgbMatch[4]) / 100 : parseFloat(rgbMatch[4]))
+      : 1;
+    return {
+      r: Math.min(255, Math.round(parse(rgbMatch[1], 255))),
+      g: Math.min(255, Math.round(parse(rgbMatch[2], 255))),
+      b: Math.min(255, Math.round(parse(rgbMatch[3], 255))),
+      a,
+    };
+  }
+
+  // hsl() / hsla()
+  const hslMatch = s.match(
+    /^hsla?\(\s*([\d.]+(?:deg|rad|turn)?)\s*[,\s]\s*([\d.]+)%\s*[,\s]\s*([\d.]+)%(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
+  );
+  if (hslMatch) {
+    let h = parseFloat(hslMatch[1]);
+    if (hslMatch[1].endsWith('rad'))  h = h * (180 / Math.PI);
+    if (hslMatch[1].endsWith('turn')) h = h * 360;
+    const rgb = hslToRgb(h, parseFloat(hslMatch[2]) / 100, parseFloat(hslMatch[3]) / 100);
+    const a = hslMatch[4] !== undefined
+      ? (hslMatch[4].endsWith('%') ? parseFloat(hslMatch[4]) / 100 : parseFloat(hslMatch[4]))
+      : 1;
+    return { ...rgb, a };
+  }
+
+  return null;
+}
+
+/**
+ * Composite a semi-transparent color over an opaque background (Porter-Duff "over")
+ */
+function compositeOver(
+  fg: ParsedColor,
+  bg: { r: number; g: number; b: number }
+): { r: number; g: number; b: number } {
+  const a = fg.a;
+  return {
+    r: Math.round(fg.r * a + bg.r * (1 - a)),
+    g: Math.round(fg.g * a + bg.g * (1 - a)),
+    b: Math.round(fg.b * a + bg.b * (1 - a)),
+  };
+}
+
+/**
+ * Convert RGB channel (0-255) to linear sRGB value
  */
 function rgbToSrgb(channel8bit: number): number {
   const sRGB = channel8bit / 255;
-
-  if (sRGB <= 0.03928) {
-    return sRGB / 12.92;
-  } else {
-    return Math.pow((sRGB + 0.055) / 1.055, 2.4);
-  }
+  return sRGB <= 0.03928
+    ? sRGB / 12.92
+    : Math.pow((sRGB + 0.055) / 1.055, 2.4);
 }
 
 /**
- * Calculate relative luminance according to WCAG formula
- * L = 0.2126 × R + 0.7152 × G + 0.0722 × B
+ * Calculate relative luminance: L = 0.2126×R + 0.7152×G + 0.0722×B
  */
 function calculateLuminance(r: number, g: number, b: number): number {
-  const rLinear = rgbToSrgb(r);
-  const gLinear = rgbToSrgb(g);
-  const bLinear = rgbToSrgb(b);
-
-  return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
+  return 0.2126 * rgbToSrgb(r) + 0.7152 * rgbToSrgb(g) + 0.0722 * rgbToSrgb(b);
 }
 
 /**
- * Calculate contrast ratio between two colors
- * Formula: (L1 + 0.05) / (L2 + 0.05) where L1 is the lighter color
+ * Calculate contrast ratio: (L1 + 0.05) / (L2 + 0.05) where L1 ≥ L2
  */
 function calculateContrastRatio(luminance1: number, luminance2: number): number {
   const lighter = Math.max(luminance1, luminance2);
   const darker = Math.min(luminance1, luminance2);
-
   return (lighter + 0.05) / (darker + 0.05);
 }
 
@@ -87,7 +183,7 @@ function getRecommendation(ratio: number, passes: ContrastResult['passes']): str
   if (passes.normalText) {
     return "✅ Passes all WCAG contrast requirements";
   } else if (passes.largeText) {
-    return "⚠️ Only suitable for large text (≥18pt or ≥14pt bold)";
+    return "⚠️ Only suitable for large text (≥24px or ≥18.67px bold / ≥18pt or ≥14pt bold)";
   } else if (ratio >= 3.0) {
     return "❌ Fails normal text requirements. Consider for disabled text only";
   } else {
@@ -96,62 +192,44 @@ function getRecommendation(ratio: number, passes: ContrastResult['passes']): str
 }
 
 /**
- * Main function to calculate contrast ratio between foreground and background colors
+ * Calculate WCAG 2.1 contrast ratio between two colors.
  *
- * @param foregroundHex - Foreground color in hex format (e.g., "#000000" or "000000")
- * @param backgroundHex - Background color in hex format (e.g., "#ffffff" or "ffffff")
- * @returns ContrastResult with detailed analysis
+ * Accepts hex (#rgb, #rrggbb, #rgba, #rrggbbaa), rgb(), rgba(), hsl(), hsla().
+ * Semi-transparent backgrounds are composited over white.
+ * Semi-transparent foregrounds are composited over the resolved background.
  */
 export function calculateWcagContrast(
-  foregroundHex: string,
-  backgroundHex: string
+  foreground: string,
+  background: string
 ): ContrastResult | { error: string } {
+  const fgParsed = parseColor(foreground);
+  const bgParsed = parseColor(background);
 
-  // Convert hex to RGB
-  const foregroundRgb = hexToRgb(foregroundHex);
-  const backgroundRgb = hexToRgb(backgroundHex);
+  if (!fgParsed) return { error: `Invalid foreground color format: ${foreground}` };
+  if (!bgParsed) return { error: `Invalid background color format: ${background}` };
 
-  if (!foregroundRgb) {
-    return { error: `Invalid foreground color format: ${foregroundHex}` };
-  }
+  const white = { r: 255, g: 255, b: 255 };
+  const bgOpaque = bgParsed.a < 1 ? compositeOver(bgParsed, white) : bgParsed;
+  const fgOpaque = fgParsed.a < 1 ? compositeOver(fgParsed, bgOpaque) : fgParsed;
 
-  if (!backgroundRgb) {
-    return { error: `Invalid background color format: ${backgroundHex}` };
-  }
-
-  // Calculate luminance for both colors
-  const foregroundLuminance = calculateLuminance(
-    foregroundRgb.r,
-    foregroundRgb.g,
-    foregroundRgb.b
-  );
-
-  const backgroundLuminance = calculateLuminance(
-    backgroundRgb.r,
-    backgroundRgb.g,
-    backgroundRgb.b
-  );
-
-  // Calculate contrast ratio
+  const foregroundLuminance = calculateLuminance(fgOpaque.r, fgOpaque.g, fgOpaque.b);
+  const backgroundLuminance = calculateLuminance(bgOpaque.r, bgOpaque.g, bgOpaque.b);
   const contrastRatio = calculateContrastRatio(foregroundLuminance, backgroundLuminance);
 
-  // Determine WCAG compliance
   const passes = {
     normalText: contrastRatio >= 4.5,
     largeText: contrastRatio >= 3.0,
-    disabled: contrastRatio >= 3.0
+    disabled: contrastRatio >= 3.0,
   };
 
-  const recommendation = getRecommendation(contrastRatio, passes);
-
   return {
-    contrastRatio: Math.floor(contrastRatio * 100) / 100, // Truncate to 2 decimal places (more conservative)
+    contrastRatio: Math.floor(contrastRatio * 100) / 100, // truncate (conservative)
     passes,
     luminance: {
       foreground: Math.round(foregroundLuminance * 1000) / 1000,
-      background: Math.round(backgroundLuminance * 1000) / 1000
+      background: Math.round(backgroundLuminance * 1000) / 1000,
     },
-    recommendation
+    recommendation: getRecommendation(contrastRatio, passes),
   };
 }
 
@@ -161,66 +239,17 @@ export function calculateWcagContrast(
 export function batchCalculateContrast(
   combinations: Array<{ foreground: string; background: string; description?: string }>
 ): Array<ContrastResult & { description?: string }> {
-
   return combinations.map(({ foreground, background, description }) => {
     const result = calculateWcagContrast(foreground, background);
-
     if ('error' in result) {
       return {
         contrastRatio: 0,
         passes: { normalText: false, largeText: false, disabled: false },
         luminance: { foreground: 0, background: 0 },
         recommendation: `❌ Error: ${result.error}`,
-        description
+        description,
       };
     }
-
     return { ...result, description };
   });
-}
-
-/**
- * Find accessible color alternatives that meet WCAG requirements
- * This function adjusts lightness to find the closest accessible version
- */
-export function findAccessibleAlternative(
-  targetHex: string,
-  backgroundHex: string,
-  requirement: 'normal' | 'large' = 'normal'
-): { color: string; contrastRatio: number } | { error: string } {
-
-  const targetRgb = hexToRgb(targetHex);
-  const backgroundRgb = hexToRgb(backgroundHex);
-
-  if (!targetRgb || !backgroundRgb) {
-    return { error: "Invalid color format" };
-  }
-
-  const requiredRatio = requirement === 'normal' ? 4.5 : 3.0;
-  const backgroundLuminance = calculateLuminance(
-    backgroundRgb.r, backgroundRgb.g, backgroundRgb.b
-  );
-
-  // Try adjusting brightness while maintaining hue and saturation
-  for (let factor = 0.1; factor <= 2.0; factor += 0.05) {
-    const adjustedR = Math.min(255, Math.max(0, Math.round(targetRgb.r * factor)));
-    const adjustedG = Math.min(255, Math.max(0, Math.round(targetRgb.g * factor)));
-    const adjustedB = Math.min(255, Math.max(0, Math.round(targetRgb.b * factor)));
-
-    const adjustedLuminance = calculateLuminance(adjustedR, adjustedG, adjustedB);
-    const contrastRatio = calculateContrastRatio(adjustedLuminance, backgroundLuminance);
-
-    if (contrastRatio >= requiredRatio) {
-      const hex = [adjustedR, adjustedG, adjustedB]
-        .map(channel => channel.toString(16).padStart(2, '0'))
-        .join('');
-
-      return {
-        color: `#${hex}`,
-        contrastRatio: Math.round(contrastRatio * 100) / 100
-      };
-    }
-  }
-
-  return { error: "Could not find accessible alternative within reasonable range" };
 }

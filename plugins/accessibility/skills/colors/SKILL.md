@@ -1,6 +1,6 @@
 ---
 name: colors
-description: Check color usage in your app for accessibility compliance, including contrast, color-vision deficiencies, and sensory sensitivity.
+description: Check color usage in your app (web or React Native) for accessibility compliance, including contrast, color-vision deficiencies, and sensory sensitivity.
 disable-model-invocation: true
 ---
 
@@ -22,7 +22,7 @@ If the LLM cannot determine the actual rendered color value, it must not guess.
 
 A color is considered ambiguous if any of the following is true:
 
-- The color is defined through an unresolved variable or token
+- The color is defined through an unresolved CSS custom property (`var(--color-primary)`) or design token whose value cannot be statically resolved
 - The color depends on runtime logic that cannot be statically evaluated
 - The color is inherited from an unknown parent
 - The color is affected by an unknown theme, mode, or configuration
@@ -30,8 +30,8 @@ A color is considered ambiguous if any of the following is true:
 If a color is ambiguous:
 
 - The LLM must not attempt contrast or accessibility analysis
-- The LLM must report the color as “not analyzable due to ambiguity”
-- The report must include the reason for ambiguity (e.g. unknown theme, unresolved token)
+- The LLM must report the color as "not analyzable due to ambiguity"
+- The report must include the reason for ambiguity (e.g. unknown theme, unresolved CSS variable)
 
 ### 0.2 Named color resolution
 
@@ -41,26 +41,44 @@ If a color is specified using a standard color name (e.g. black, white, red, blu
 - If there is a theme, token, or configuration that can override named colors, the LLM must resolve the final value from the theme
 - If resolution is not possible, the color is considered ambiguous
 
+### 0.3 CSS color format support
+
+The `calculate_contrast` and `batch_calculate_contrast` tools accept:
+
+- **Hex**: `#rgb`, `#rrggbb`, `#rgba`, `#rrggbbaa`
+- **RGB / RGBA**: `rgb(255, 0, 0)`, `rgba(255, 0, 0, 0.5)`
+- **HSL / HSLA**: `hsl(120, 50%, 50%)`, `hsla(120, 50%, 50%, 0.8)`
+
+Semi-transparent colors are automatically alpha-composited before contrast is computed:
+- A semi-transparent **background** is composited over white
+- A semi-transparent **foreground** is composited over the (resolved) background
+
+Relative units (`em`, `rem`, `%`) and `opacity` CSS properties are **not** handled by the tool — the LLM must resolve them to absolute color values before calling the tool.
+
 ## 1. Contrast requirements (low vision)
 
 ### 1.1 Definition
 
 A **contrast ratio** is the ratio of perceived luminance between the foreground (text, icon, or control) and background (surface behind the foreground).
 
-**Always use the `calculate_contrast` MCP tool to compute contrast ratios.** Never calculate them manually. For multiple color pairs, use `batch_calculate_contrast` in a single call. Don't try to find a passing alternative for a failing color.
+**Always use the `calculate_contrast` MCP tool to compute contrast ratios.** Never calculate them manually. For multiple color pairs, use `batch_calculate_contrast` in a single call. **Do not** try to find a passing alternative for a failing color.
 
 ---
 
 ### 1.2 Text contrast rules
 
-For every text element, the LLM must verify:
+For every text element, the LLM must verify the contrast ratio. Size thresholds and unit resolution differ by platform:
 
-- If text size is **< 18pt** (or **< 14pt bold**):  
-  → Contrast ratio **must be ≥ 4.5:1**
-- If text size is **≥ 18pt** (or **≥ 14pt bold**):  
-  → Contrast ratio **must be ≥ 3:1**
+| Rule | Web | Mobile (React Native) |
+|---|---|---|
+| **Normal text threshold** | < 24px / < 1.5rem (or < 18.67px / < 1.167rem bold) → **≥ 4.5:1** | < 18pt (or < 14pt bold) → **≥ 4.5:1** |
+| **Large text threshold** | ≥ 24px / ≥ 1.5rem (or ≥ 18.67px / ≥ 1.167rem bold) → **≥ 3:1** | ≥ 18pt (or ≥ 14pt bold) → **≥ 3:1** |
+| **Relative units** | Resolve `em`/`rem` against computed base font size (default: 16px) | Use pt units directly; 18pt ≈ 24px at 96 dpi |
+
+Regardless of platform:
+
 - Disabled text **must maintain a contrast ratio ≥ 3:1**
-- Use of opacity **must not reduce** the effective contrast below the required threshold
+- CSS `opacity` **must not reduce** the effective contrast below the required threshold — evaluate opacity-adjusted colors, not raw values
 
 ---
 
@@ -85,6 +103,15 @@ For all color variants (primary, secondary, tertiary, theme variants):
 
 - Contrast requirements **must be evaluated independently**
 - A variant that fails contrast **must not be used for text or essential UI**
+
+---
+
+### 1.5 Focus indicators (web only)
+
+For web applications, interactive elements (links, buttons, inputs, etc.) must have a visible focus indicator that meets contrast requirements:
+
+- The focus indicator must have a contrast ratio ≥ 3:1 against the adjacent colors
+- Focus styles set via `outline: none` or `outline: 0` without a replacement **must be rejected**
 
 ---
 
@@ -166,7 +193,7 @@ The following usages **must be rejected**:
   - Patterns
   - Color overlays
   - Text placed over complex or multicolored backgrounds
-- Visually “vibrating” color combinations:
+- Visually "vibrating" color combinations:
   - High-contrast complementary pairs (e.g. red on blue)
 
 ---
