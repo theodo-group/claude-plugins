@@ -1,0 +1,20 @@
+{
+    "name": "accessibility",
+    "description": "A plugin to check your react-native app for accessibility features. It also includes suggestions to improve accessibility and make your app more inclusive.",
+    "version": "0.0.2",
+    "author": {
+        "name": "Guillaume Egret & Britta Evans-Fenton & Lucie Uffoltz"
+    },
+    "mcpServers": {
+        "contrast-calculator": {
+            "type": "stdio",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/dist/colors/contrast-calculator-server.mjs"]
+        },
+        "accessibility-tree": {
+            "type": "stdio",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/dist/accessibility-tree/accessibility-tree.mjs"]
+        }
+    }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mcp-accessibility-tree": {
+      "command": "node",
+      "args": ["./plugins/accessibility/mcp/index.js"]
+    }
+  }
+}
