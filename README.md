@@ -29,6 +29,42 @@ Once your changes made, you will need to run `npm run build` before `git push`.
 
 ---
 
+## Releasing a plugin
+
+Use the release script to build the MCP server and bump the plugin version in one step:
+
+```sh
+./scripts/release.sh <plugin-name> [patch|minor|major]
+```
+
+The bump type defaults to `patch` if omitted.
+
+**Examples:**
+
+```sh
+./scripts/release.sh accessibility          # 0.0.2 → 0.0.3
+./scripts/release.sh accessibility minor    # 0.0.2 → 0.1.0
+./scripts/release.sh accessibility major    # 0.0.2 → 1.0.0
+```
+
+The script will:
+
+1. Build the MCP server (`npm install && npm run build`)
+2. Bump the version in `plugins/<plugin>/.claude-plugin/plugin.json`
+3. Bump the version in `.claude-plugin/marketplace.json`
+
+Then commit and tag the release:
+
+```sh
+git add plugins/accessibility/.claude-plugin/plugin.json \
+        plugins/accessibility/mcp/dist \
+        .claude-plugin/marketplace.json
+git commit -m "release(accessibility): v0.0.3"
+git tag "accessibility/v0.0.3"
+```
+
+---
+
 ## Example usages
 
 ### Color checker
