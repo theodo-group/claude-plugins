@@ -1,6 +1,6 @@
 ---
-name: screen-reader
-description: A skill that helps developers check the screen reader accessibility of their apps by analyzing the accessibility tree and providing feedback on potential issues.
+name: screen-reader-react-native
+description: A skill that helps React Native developers check the screen reader accessibility of their apps by analyzing the accessibility tree and providing feedback on potential issues.
 ---
 
 # Get the accessibility tree
@@ -27,39 +27,39 @@ Example:
 </HStack>
 ```
 
-This is likely 2 components: a header and a button Take special attention to interactive elements inside other interactive elements. This will require a refactor to remove the nesting first while keeping the UX
+This is likely 2 components: a header and a button Take special attention to interactive elements inside other interactive elements. This will require a refactor to remove the nesting first while keeping the UX
 
 ## 2. Determine the type of component
 
 included but not limited to:
 
-- adjustable: Used when an element can be "adjusted" (e.g. a slider, handles for bottom sheets).
-- alert (Android only): Used when an element contains important text to be presented to the user.
-- button: Used when the element should be treated as a button.
-- checkbox: Used when an element represents a checkbox that can be checked, unchecked, or have a mixed checked state.
-- combobox (Android only): Used when an element represents a combo box, which allows the user to select among several choices.
-- header: Used when an element acts as a header for a content section (e.g. the title of a navigation bar).
-- image: Used when the element should be treated as an image. Can be combined with a button or link.
-- imagebutton: Used when the element should be treated as a button and is also an image.
-- keyboardkey (iOS only): Used when the element acts as a keyboard key.
-- link: Used when the element should be treated as a link.
-- menu (Android only): Used when the component is a menu of choices.
-- menubar (Android only): Used when a component is a container of multiple menus.
-- menuitem (Android only): Used to represent an item within a menu.
-- progressbar: Used to represent a component that indicates the progress of a task.
-- radio: Used to represent a radio button. This needs a accessibilityState.
-- radiogroup: Used to represent a group of radio buttons.
-- scrollbar (Android only): Used to represent a scroll bar.
-- search (iOS only): Used when a text field element should also be treated as a search field.
-- spinbutton (Android only): Used to represent a button that opens a list of choices.
-- summary: Used when an element can be used to provide a quick summary of current conditions in the app when the app first launches.
-- switch: Used to represent a switch that can be turned on and off.
-- tab (Android only): Used to represent a tab.
-- tablist (Android only): Used to represent a list of tabs.
-- text: Used when the element should be treated as static text that cannot change.
-- timer (iOS): Used to represent a timer.
-- togglebutton: Used to represent a toggle button. Should be used with accessibilityState checked to indicate if the button is toggled on or off.
-- toolbar (Android only): Used to represent a toolbar (a container of action buttons or components).
+- adjustable: Used when an element can be "adjusted" (e.g. a slider, handles for bottom sheets).
+- alert (Android only): Used when an element contains important text to be presented to the user.
+- button: Used when the element should be treated as a button.
+- checkbox: Used when an element represents a checkbox that can be checked, unchecked, or have a mixed checked state.
+- combobox (Android only): Used when an element represents a combo box, which allows the user to select among several choices.
+- header: Used when an element acts as a header for a content section (e.g. the title of a navigation bar).
+- image: Used when the element should be treated as an image. Can be combined with a button or link.
+- imagebutton: Used when the element should be treated as a button and is also an image.
+- keyboardkey (iOS only): Used when the element acts as a keyboard key.
+- link: Used when the element should be treated as a link.
+- menu (Android only): Used when the component is a menu of choices.
+- menubar (Android only): Used when a component is a container of multiple menus.
+- menuitem (Android only): Used to represent an item within a menu.
+- progressbar: Used to represent a component that indicates the progress of a task.
+- radio: Used to represent a radio button. This needs a accessibilityState.
+- radiogroup: Used to represent a group of radio buttons.
+- scrollbar (Android only): Used to represent a scroll bar.
+- search (iOS only): Used when a text field element should also be treated as a search field.
+- spinbutton (Android only): Used to represent a button that opens a list of choices.
+- summary: Used when an element can be used to provide a quick summary of current conditions in the app when the app first launches.
+- switch: Used to represent a switch that can be turned on and off.
+- tab (Android only): Used to represent a tab.
+- tablist (Android only): Used to represent a list of tabs.
+- text: Used when the element should be treated as static text that cannot change.
+- timer (iOS): Used to represent a timer.
+- togglebutton: Used to represent a toggle button. Should be used with accessibilityState checked to indicate if the button is toggled on or off.
+- toolbar (Android only): Used to represent a toolbar (a container of action buttons or components).
 
 ## 3. Does it need a role?
 
