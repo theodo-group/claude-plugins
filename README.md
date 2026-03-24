@@ -1,4 +1,4 @@
-# Bamlab Claude Plugins
+# Theodo Group Claude Plugins
 
 A collection of Claude Code plugins by Theodo Apps.
 
@@ -94,8 +94,8 @@ git tag "accessibility/v0.0.3"
 Add the marketplace from GitHub, then install a plugin:
 
 ```sh
-/plugin marketplace add git@github.com:bamlab/claude-plugins.git
-/plugin install accessibility@bamlab-claude-plugins
+/plugin marketplace add git@github.com:theodo-group/claude-plugins.git
+/plugin install accessibility@theodo-group-claude-plugins
 ```
 
 ### Local (for contributors)
@@ -112,5 +112,5 @@ First clone the repo and build the MCP server (see [Development setup](#developm
 
 ```sh
 /plugin marketplace add ./path/to/claude-plugins
-/plugin install accessibility@bamlab-claude-plugins
+/plugin install accessibility@theodo-group-claude-plugins
 ```
