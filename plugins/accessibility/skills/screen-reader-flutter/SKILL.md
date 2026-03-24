@@ -34,26 +34,47 @@ This is likely 2 components: a header and a button. Take special attention to in
 
 ## 2. Determine the type of component
 
-Flutter exposes semantic roles through `SemanticsProperties` and the `Semantics` widget. Common roles:
+Flutter exposes semantic roles through the props of the `Semantics` widget, especially the prop `role`. Some native roles can also be set with other props of the Semantics widget: for example, the "button" role is set by "button: true". SemanticsRole enum values are:
 
-- **button**: An element that triggers an action (use `button: true`).
-- **link**: A tappable element that navigates to a URL (use `link: true`).
-- **header**: A section heading (use `header: true`).
-- **image**: A purely visual element (use `image: true`; combine with a label for non-decorative images).
-- **textField**: An editable text input (use `textField: true`).
-- **checkbox**: A toggleable element with checked state (use `checked`).
-- **radio**: A radio button within a group (use `inMutuallyExclusiveGroup: true` + `checked`).
-- **toggleButton** / **switch**: An on/off toggle (use `toggled`).
-- **slider** / **adjustable**: A draggable value control (use `slider: true`).
-- **progressBar**: Indicates task progress (use `liveRegion: true` if value changes dynamically).
-- **tab**: A tab within a tab bar (use `selected` to indicate active tab).
+* **tab**: A tab button. See also: [tabBar], which is the role for containers of tab buttons.
+* **tabBar**: Contains tab buttons. See also: [tab], which is the role for tab buttons.
+* **tabPanel**: The main display for a tab.
+* **dialog**: A pop-up dialog.
+* **alertDialog**: An alert dialog.
+* **table**: A table structure containing data arranged in rows and columns. See also: [cell], [row], [columnHeader] for table-related roles.
+* **cell**: A cell in a [table] that does not contain column or row header information. See also: [table], [row], [columnHeader] for table-related roles.
+* **row**: A row of [cell]s or [columnHeader]s in a [table]. See also: [table], [cell], [columnHeader] for table-related roles.
+* **columnHeader**: A cell in a [table] that contains header information for a column. See also: [table], [cell], [row] for table-related roles.
+* **dragHandle**: A control used for dragging across content. For example, the drag handle of [ReorderableList].
+* **spinButton**: A control to cycle through content on tap. For example, the next and previous month button of a [CalendarDatePicker].
+* **comboBox**: An input field with a dropdown list box attached. For example, a [DropdownMenu].
+* **menuBar**: A presentation of [menu] that usually remains visible and is usually presented horizontally. For example, a [MenuBar].
+* **menu**: A permanently visible list of controls or a widget that can be made to open and close. For example, a [MenuAnchor] or [DropdownButton].
+* **menuItem**: An item in a dropdown created by [menu] or [menuBar]. See also: [menuItemCheckbox], [menuItemRadio].
+* **menuItemCheckbox**: An item with a checkbox in a dropdown created by [menu] or [menuBar]. See also: [menuItem], [menuItemRadio].
+* **menuItemRadio**: An item with a radio button in a dropdown created by [menu] or [menuBar]. See also: [menuItem], [menuItemCheckbox].
+* **list**: A container to display multiple [listItem]s in vertical or horizontal layout. For example, a [ListView] or [Column].
+* **listItem**: An item in a [list].
+* **form**: An area that represents a form.
+* **tooltip**: A pop-up displayed when hovering over a component to provide contextual explanation.
+* **loadingSpinner**: A graphic object that spins to indicate the application is busy. For example, a [CircularProgressIndicator].
+* **progressBar**: A graphic object that shows progress with a numeric value. For example, a [LinearProgressIndicator].
+* **hotKey**: A keyboard shortcut field that allows the user to enter a combination or sequence of keystrokes. For example, [Shortcuts].
+* **radioGroup**: A group of radio buttons.
+* **status**: A component to provide advisory information that is not important enough to justify an [alert]. For example, a loading message for a web page.
+* **alert**: A component to provide important and usually time-sensitive information that requires the user’s immediate attention (e.g., invalid form input, session expiration, lost connection).
+* **complementary**: A supporting section that relates to the main content (e.g., sidebars or call-out boxes).
+* **contentInfo**: A footer section containing identifying information such as copyright, navigation links, and privacy statements.
+* **main**: The primary content of a document, directly related to the central topic or main function.
+* **navigation**: A region of a web page that contains navigation links.
+* **region**: A section of content that is important but cannot be described by other landmark roles like main, contentInfo, complementary, or navigation.
 
 Most Flutter Material/Cupertino widgets already expose correct semantics automatically. Use `Semantics` to override or extend when needed.
 
 ## 3. Does it need a role?
 
 - Built-in widgets like `ElevatedButton`, `TextButton`, `Switch`, `Checkbox`, `Slider`, `TextField` expose correct semantics automatically — skip these.
-- For custom widgets or icon-only controls, wrap with `Semantics` and set the appropriate flag.
+- For custom widgets or icon-only controls, wrap with `Semantics` and set the appropriate flag if you don't see the right role in the semantics tree
 
 Example:
 
@@ -77,11 +98,11 @@ Row(
 ```
 
 Prefer `IconButton` over a raw `GestureDetector` + `Icon` — it already sets button semantics and accepts a `tooltip` as the accessible label.
+This is also applicable for `GestureDetector` + `Text`, where a custom Button widget from the theme package is preferable. Gloabally, a `GestureDetector` should only be use in specific edge cases, when there is no other viable option.
 
 ## 4. Does it have state?
 
-- If the element can be disabled, selected, checked, busy, or expanded, set the corresponding `Semantics` properties.
-- For `expanded`/`collapsed`: Flutter does not announce "collapsed" by default when `expanded: false`; add a `hint` that reflects the current state.
+- If the element can be disabled, selected, checked, or expanded, set the corresponding `Semantics` properties.
 
 Examples:
 
@@ -98,15 +119,6 @@ Semantics(
 Semantics(
   selected: isSelected,
   child: GestureDetector(onTap: onTap, child: Text('Home')),
-)
-```
-
-```dart
-// Busy / loading
-Semantics(
-  label: 'Loading profile data',
-  liveRegion: true,
-  child: CircularProgressIndicator(),
 )
 ```
 
@@ -210,17 +222,7 @@ Semantics(
   label: 'Save',
   child: ElevatedButton(onPressed: onSave, child: Text('Save')),
 )
-
-// ✅ Hint adds value (GOOD)
-Semantics(
-  button: true,
-  label: 'PROMO2024',
-  hint: 'Double tap to copy code to clipboard',
-  child: GestureDetector(onTap: copyToClipboard, child: Text('PROMO2024')),
-)
 ```
 
-Still To Add details around
-
-- Test with TalkBack (Android) and VoiceOver (iOS).
 - Consider focus order using `FocusTraversalGroup` and `FocusTraversalOrder`.
+- Only add a `Semantics`, `MergeSemantics`, `ExcludeSemantics`, `FocusTraversalGroup`, or any Semantics related widget when it's necessary and you couldn't make the right behavior without it. Always prefer fixs that replace low level widgets by more clever widgets without changing the behavior (ex: don't add a `Semantics` over `GestureDetector`+`Icon` when you can replace them with a `IconButton`)
