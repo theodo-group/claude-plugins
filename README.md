@@ -1,4 +1,4 @@
-# Bamlab Claude Plugins
+# Theodo Group Claude Plugins
 
 A collection of Claude Code plugins by Theodo Apps.
 
@@ -26,6 +26,42 @@ npm run build
 ```
 
 Once your changes made, you will need to run `npm run build` before `git push`.
+
+---
+
+## Releasing a plugin
+
+Use the release script to build the MCP server and bump the plugin version in one step:
+
+```sh
+./scripts/release.sh <plugin-name> [patch|minor|major]
+```
+
+The bump type defaults to `patch` if omitted.
+
+**Examples:**
+
+```sh
+./scripts/release.sh accessibility          # 0.0.2 → 0.0.3
+./scripts/release.sh accessibility minor    # 0.0.2 → 0.1.0
+./scripts/release.sh accessibility major    # 0.0.2 → 1.0.0
+```
+
+The script will:
+
+1. Build the MCP server (`npm install && npm run build`)
+2. Bump the version in `plugins/<plugin>/.claude-plugin/plugin.json`
+3. Bump the version in `.claude-plugin/marketplace.json`
+
+Then commit and tag the release:
+
+```sh
+git add plugins/accessibility/.claude-plugin/plugin.json \
+        plugins/accessibility/mcp/dist \
+        .claude-plugin/marketplace.json
+git commit -m "release(accessibility): v0.0.3"
+git tag "accessibility/v0.0.3"
+```
 
 ---
 
@@ -58,8 +94,8 @@ Once your changes made, you will need to run `npm run build` before `git push`.
 Add the marketplace from GitHub, then install a plugin:
 
 ```sh
-/plugin marketplace add git@github.com:bamlab/claude-plugins.git
-/plugin install accessibility@bamlab-claude-plugins
+/plugin marketplace add git@github.com:theodo-group/claude-plugins.git
+/plugin install accessibility@theodo-group-claude-plugins
 ```
 
 ### Local (for contributors)
@@ -76,5 +112,5 @@ First clone the repo and build the MCP server (see [Development setup](#developm
 
 ```sh
 /plugin marketplace add ./path/to/claude-plugins
-/plugin install accessibility@bamlab-claude-plugins
+/plugin install accessibility@theodo-group-claude-plugins
 ```
