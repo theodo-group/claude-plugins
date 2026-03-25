@@ -5,6 +5,15 @@ description: A skill that helps React Native developers check the screen reader 
 
 # Get the accessibility tree
 
+## Prerequisites
+
+Before fetching the accessibility tree, check that the required device is available:
+
+- **Android**: run `adb devices` and verify at least one device is listed (not just the header). If no device is connected, stop and ask the user to connect a device.
+- **iOS**: run `xcrun xctrace list devices` (or `instruments -s devices`) to verify a device is connected. Also confirm that WebDriverAgent is installed and running on the device — if it is not, stop and ask the user to start WebDriverAgent before continuing.
+
+## Fetch the tree
+
 Get the accessibility tree from the user's connected device using the MCP tools:
 
 - For **Android**: call `get_accessibility_tree_android` (optionally pass a `deviceId`).
