@@ -67,6 +67,16 @@ git tag "accessibility/v0.0.3"
 
 ## Example usages
 
+### Why accessibility
+
+> "I'm not sure why accessibility matters — can you explain it to me?"
+
+> "What does accessibility actually mean for a mobile app?"
+
+> "Make the case for accessibility to my product manager — we're building a banking app in France"
+
+> "My client says accessibility isn't a priority. What are the legal risks for an e-commerce app in the EU?"
+
 ### Color checker
 
 > "Check the color accessibility of my app"
