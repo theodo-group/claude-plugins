@@ -19,6 +19,13 @@
             "args": [
                 "${CLAUDE_PLUGIN_ROOT}/mcp/dist/accessibility-tree/accessibility-tree.mjs"
             ]
+        },
+        "screenshot": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "${CLAUDE_PLUGIN_ROOT}/mcp/dist/screenshot/screenshot.mjs"
+            ]
         }
     }
 }

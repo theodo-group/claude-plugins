@@ -16,6 +16,21 @@ The guidelines align with **WCAG 2.1** and include additional constraints for co
 
 These rules define how the LLM must interpret color information before applying accessibility checks.
 
+### 0.0 Analyzing a running application
+
+If the user asks to analyze a running app, or if colors cannot be resolved from source code alone:
+
+- For **Android**: call `take_screenshot_android` (optionally pass a `deviceId`) to capture the current screen.
+- For **iOS**: call `take_screenshot_ios` (optionally pass a `deviceId`) to capture the current screen.
+
+Use the returned screenshot to visually identify foreground and background colors of UI elements (text, icons, buttons, surfaces). Extract their approximate hex values and proceed with the rules below.
+
+When analyzing from a screenshot:
+- Focus on visible text and interactive elements
+- Identify the most prominent color pairs (foreground/background) for each element type
+- Use `batch_calculate_contrast` to evaluate all pairs in a single call
+- Note any elements where colors cannot be reliably extracted (e.g. anti-aliased text on gradients) and report them as ambiguous per rule 0.1
+
 ### 0.1 Ambiguous color handling
 
 If the LLM cannot determine the actual rendered color value, it must not guess.
