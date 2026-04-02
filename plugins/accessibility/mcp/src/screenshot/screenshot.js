@@ -77,39 +77,106 @@ server.tool(
 );
 
 // ─── iOS ─────────────────────────────────────────────────────────────────────
+
+// Returns the major iOS version for a connected real device, or null if unavailable.
+const getRealDeviceIosMajorVersion = (udid) => {
+    try {
+        const udidFlag = udid ? `--udid ${udid}` : "";
+        const info = runCommand(`ideviceinfo ${udidFlag} -k ProductVersion`);
+        const major = parseInt(info.trim().split(".")[0], 10);
+        return isNaN(major) ? null : major;
+    } catch {
+        return null;
+    }
+};
+
+// Returns the UDID of the first connected real device, or null if none.
+const getFirstRealDeviceUdid = () => {
+    try {
+        const output = runCommand("idevice_id -l");
+        const udid = output.trim().split("\n")[0].trim();
+        return udid || null;
+    } catch {
+        return null;
+    }
+};
+
+// Simulator UDIDs use the standard UUID format (8-4-4-4-12 hex).
+const isSimulatorUdid = (udid) =>
+    /^[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}$/i.test(udid);
+
 server.tool(
     "take_screenshot_ios",
-    "Take a screenshot of the current screen on a booted iOS simulator. Returns the screenshot as a base64-encoded PNG image.",
+    "Take a screenshot of the current screen on a booted iOS simulator or a connected real iOS device (iOS 16 and below only). Returns the screenshot as a base64-encoded PNG image.",
     {
         deviceId: z
             .string()
             .optional()
-            .describe("Simulator UDID. If omitted, uses the first booted simulator."),
+            .describe("Simulator UDID or real device UDID. If omitted, uses the first booted simulator, or the first connected real device (iOS ≤16) if no simulator is booted."),
     },
     async ({ deviceId }) => {
         if (process.platform !== "darwin") {
-            return errorResponse("iOS simulator support requires macOS.");
-        }
-
-        let resolvedDeviceId = deviceId;
-        if (!resolvedDeviceId) {
-            try {
-                const simList = runCommand("xcrun simctl list devices booted");
-                const match = simList.match(/([A-F0-9-]{36})/i);
-                if (!match) {
-                    return errorResponse("No booted iOS simulator found. Boot a simulator first with `xcrun simctl boot <deviceId>` or from Xcode.");
-                }
-                resolvedDeviceId = match[1];
-            } catch (e) {
-                return errorResponse(`Failed to list simulators: ${e.message}`);
-            }
+            return errorResponse("iOS support requires macOS.");
         }
 
         const tmpPath = "/tmp/ios_screenshot.png";
+
+        // Determine whether the target is a simulator or real device
+        const targetIsSimulator = !deviceId || isSimulatorUdid(deviceId);
+
+        if (targetIsSimulator) {
+            // Try simulator path
+            let resolvedDeviceId = deviceId;
+            if (!resolvedDeviceId) {
+                try {
+                    const simList = runCommand("xcrun simctl list devices booted");
+                    const match = simList.match(/([A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12})/i);
+                    if (match) {
+                        resolvedDeviceId = match[1];
+                    }
+                } catch {
+                    // fall through to real device
+                }
+            }
+
+            if (resolvedDeviceId) {
+                try {
+                    runCommand(`xcrun simctl io ${resolvedDeviceId} screenshot ${tmpPath}`);
+                    const imageData = readFileSync(tmpPath).toString("base64");
+                    return { content: [{ type: "image", data: imageData, mimeType: "image/png" }] };
+                } catch (e) {
+                    return errorResponse(`Failed to take screenshot on simulator ${resolvedDeviceId}: ${e.message}`);
+                }
+            }
+
+            // No booted simulator — fall through to real device if no explicit deviceId was given
+            if (deviceId) {
+                return errorResponse(`No booted simulator found with UDID ${deviceId}.`);
+            }
+        }
+
+        // Real device path
+        const realDeviceUdid = deviceId && !isSimulatorUdid(deviceId) ? deviceId : getFirstRealDeviceUdid();
+        if (!realDeviceUdid) {
+            return errorResponse("No booted iOS simulator and no connected real device found.");
+        }
+
+        const majorVersion = getRealDeviceIosMajorVersion(realDeviceUdid);
+        if (majorVersion !== null && majorVersion >= 17) {
+            return errorResponse(
+                `Real device screenshot is only supported on iOS 16 and below. ` +
+                `This device is running iOS ${majorVersion}. ` +
+                `Use a simulator instead, or mirror your device screen and take a screenshot manually.`
+            );
+        }
+
         try {
-            runCommand(`xcrun simctl io ${resolvedDeviceId} screenshot ${tmpPath}`);
+            runCommand(`idevicescreenshot --udid ${realDeviceUdid} ${tmpPath}`);
         } catch (e) {
-            return errorResponse(`Failed to take screenshot on simulator ${resolvedDeviceId}: ${e.message}`);
+            return errorResponse(
+                `Failed to take screenshot from real device ${realDeviceUdid}: ${e.message}. ` +
+                `Make sure libimobiledevice is installed (brew install libimobiledevice).`
+            );
         }
 
         let imageData;
@@ -119,9 +186,7 @@ server.tool(
             return errorResponse(`Failed to read screenshot file: ${e.message}`);
         }
 
-        return {
-            content: [{ type: "image", data: imageData, mimeType: "image/png" }],
-        };
+        return { content: [{ type: "image", data: imageData, mimeType: "image/png" }] };
     }
 );
 
