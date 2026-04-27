@@ -1,7 +1,7 @@
 /**
  * WCAG 2.1 Contrast Ratio Calculator
  *
- * Implements the exact contrast ratio calculation algorithm as specified in Colors.md
+ * Implements the exact contrast ratio calculation algorithm
  * This tool ensures accurate accessibility analysis by following WCAG guidelines precisely.
  *
  * Supported color formats:
@@ -35,29 +35,30 @@ interface ParsedColor {
  * Convert hex string to RGBA values
  */
 function hexToRgba(hex: string): ParsedColor | null {
-  hex = hex.replace('#', '');
+  const normalizedHex = hex.replace('#', '');
 
-  if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join('');
-  }
-  if (hex.length === 4) {
-    hex = hex.split('').map(c => c + c).join('');
-  }
+  // Expand 3-digit and 4-digit hex to 6-digit and 8-digit
+  // #abc -> #aabbcc, #abcd -> #aabbccdd
+  const expandedHex = (normalizedHex.length === 3 || normalizedHex.length === 4)
+    ? normalizedHex.split('').map(c => c + c).join('')
+    : normalizedHex;
 
-  if (hex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(hex)) {
+  // 8-digit hex with alpha
+  if (expandedHex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(expandedHex)) {
     return {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16),
-      a: parseInt(hex.substring(6, 8), 16) / 255,
+      r: parseInt(expandedHex.substring(0, 2), 16),
+      g: parseInt(expandedHex.substring(2, 4), 16),
+      b: parseInt(expandedHex.substring(4, 6), 16),
+      a: parseInt(expandedHex.substring(6, 8), 16) / 255,
     };
   }
 
-  if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+  // 6-digit hex without alpha
+  if (expandedHex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(expandedHex)) {
     return {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16),
+      r: parseInt(expandedHex.substring(0, 2), 16),
+      g: parseInt(expandedHex.substring(2, 4), 16),
+      b: parseInt(expandedHex.substring(4, 6), 16),
       a: 1,
     };
   }
