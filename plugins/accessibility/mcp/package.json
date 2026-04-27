@@ -9,7 +9,9 @@
   "scripts": {
     "build": "esbuild src/colors/contrast-calculator-server.ts src/accessibility-tree/accessibility-tree.js --bundle --platform=node --format=esm --outbase=src --outdir=dist --out-extension:.js=.mjs",
     "start:contrast": "node dist/colors/contrast-calculator-server.mjs",
-    "start:tree": "node dist/accessibility-tree/accessibility-tree.mjs"
+    "start:tree": "node dist/accessibility-tree/accessibility-tree.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
@@ -18,7 +20,8 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "esbuild": "^0.27.4",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=18"

@@ -34,7 +34,8 @@ interface ParsedColor {
 /**
  * Convert hex string to RGBA values
  */
-function hexToRgba(hex: string): ParsedColor | null {
+export function hexToRgba(hex: string): ParsedColor | null {
+  // Remove the leading '#' if present
   const normalizedHex = hex.replace('#', '');
 
   // Expand 3-digit and 4-digit hex to 6-digit and 8-digit
@@ -49,7 +50,7 @@ function hexToRgba(hex: string): ParsedColor | null {
       r: parseInt(expandedHex.substring(0, 2), 16),
       g: parseInt(expandedHex.substring(2, 4), 16),
       b: parseInt(expandedHex.substring(4, 6), 16),
-      a: parseInt(expandedHex.substring(6, 8), 16) / 255,
+      a: Math.round(parseInt(expandedHex.substring(6, 8), 16) / 255 * 100) / 100,
     };
   }
 
