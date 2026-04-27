@@ -70,22 +70,38 @@ export function hexToRgba(hex: string): ParsedColor | null {
 /**
  * Convert HSL (h: 0-360, s: 0-1, l: 0-1) to RGB (0-255)
  */
-function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-  h = ((h % 360) + 360) % 360;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-  const m = l - c / 2;
+export function hslToRgb(hue: number, saturation: number, lightness: number): { r: number; g: number; b: number } {
+  // Clamp hue to [0, 360°); double modulo handles negative inputs (e.g. -30 → 330)
+  const normalizedHue = ((hue % 360) + 360) % 360;
+
+  // Chroma represent color intensity: zero for grays, peaks at full saturation + mid lightness
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+
+  // Channel that rises/falls as the hue crosses a 60° sector boundary
+  const chromaRamp = chroma * (1 - Math.abs((normalizedHue / 60) % 2 - 1));
+
+  // Shift all channels to match the target lightness
+  const lightnessAdjustment = lightness - chroma / 2;
+
   let r = 0, g = 0, b = 0;
-  if (h < 60)       { r = c; g = x; b = 0; }
-  else if (h < 120) { r = x; g = c; b = 0; }
-  else if (h < 180) { r = 0; g = c; b = x; }
-  else if (h < 240) { r = 0; g = x; b = c; }
-  else if (h < 300) { r = x; g = 0; b = c; }
-  else              { r = c; g = 0; b = x; }
+  if (normalizedHue < 60) {
+    r = chroma; g = chromaRamp; b = 0;
+  } else if (normalizedHue < 120) {
+    r = chromaRamp; g = chroma; b = 0;
+  } else if (normalizedHue < 180) {
+    r = 0; g = chroma; b = chromaRamp;
+  } else if (normalizedHue < 240) {
+    r = 0; g = chromaRamp; b = chroma;
+  } else if (normalizedHue < 300) {
+    r = chromaRamp; g = 0; b = chroma;
+  } else {
+    r = chroma; g = 0; b = chromaRamp;
+  }
+  
   return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255),
+    r: Math.round((r + lightnessAdjustment) * 255),
+    g: Math.round((g + lightnessAdjustment) * 255),
+    b: Math.round((b + lightnessAdjustment) * 255),
   };
 }
 
