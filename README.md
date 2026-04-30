@@ -1,6 +1,6 @@
 # Theodo Group Claude Plugins
 
-A collection of Claude Code plugins by Theodo Apps.
+A collection of Claude Code plugins by Theodo.
 
 ## Plugins
 
