@@ -18283,13 +18283,13 @@ var zodToJsonSchema = (schema, options) => {
     }, true) ?? parseAnyDef(refs)
   }), {}) : void 0;
   const name = typeof options === "string" ? options : options?.nameStrategy === "title" ? void 0 : options?.name;
-  const main = parseDef(schema._def, name === void 0 ? refs : {
+  const main2 = parseDef(schema._def, name === void 0 ? refs : {
     ...refs,
     currentPath: [...refs.basePath, refs.definitionPath, name]
   }, false) ?? parseAnyDef(refs);
   const title = typeof options === "object" && options.name !== void 0 && options.nameStrategy === "title" ? options.name : void 0;
   if (title !== void 0) {
-    main.title = title;
+    main2.title = title;
   }
   if (refs.flags.hasReferencedOpenAiAnyType) {
     if (!definitions) {
@@ -18310,9 +18310,9 @@ var zodToJsonSchema = (schema, options) => {
     }
   }
   const combined = name === void 0 ? definitions ? {
-    ...main,
+    ...main2,
     [refs.definitionPath]: definitions
-  } : main : {
+  } : main2 : {
     $ref: [
       ...refs.$refStrategy === "relative" ? [] : refs.basePath,
       refs.definitionPath,
@@ -18320,7 +18320,7 @@ var zodToJsonSchema = (schema, options) => {
     ].join("/"),
     [refs.definitionPath]: {
       ...definitions,
-      [name]: main
+      [name]: main2
     }
   };
   if (refs.target === "jsonSchema7") {
@@ -18552,11 +18552,11 @@ var Protocol = class {
    *
    * The Protocol object assumes ownership of the Transport, replacing any callbacks that have already been set, and expects that it is the only user of the Transport instance going forward.
    */
-  async connect(transport2) {
+  async connect(transport) {
     if (this._transport) {
       throw new Error("Already connected to a transport. Call close() before connecting to a new transport, or use a separate Protocol instance per connection.");
     }
-    this._transport = transport2;
+    this._transport = transport;
     const _onclose = this.transport?.onclose;
     this._transport.onclose = () => {
       _onclose?.();
@@ -20140,8 +20140,8 @@ var McpServer = class {
    *
    * The `server` object assumes ownership of the Transport, replacing any callbacks that have already been set, and expects that it is the only user of the Transport instance going forward.
    */
-  async connect(transport2) {
-    return await this.server.connect(transport2);
+  async connect(transport) {
+    return await this.server.connect(transport);
   }
   /**
    * Closes the connection.
@@ -20985,7 +20985,7 @@ var StdioServerTransport = class {
   }
 };
 
-// src/accessibility-tree/accessibility-tree.js
+// src/accessibility-tree/accessibility-tree.ts
 import { execSync } from "child_process";
 import { readFileSync } from "fs";
 var server = new McpServer({
@@ -21001,26 +21001,32 @@ var errorResponse = (message) => ({
 });
 var convertWdaNode = (node) => {
   const out = {
-    type: node.type || "Unknown",
-    label: node.label || "",
-    value: node.value || "",
-    traits: node.traits || ""
+    type: node.type ?? "Unknown",
+    label: node.label ?? "",
+    value: node.value ?? "",
+    traits: node.traits ?? ""
   };
   if (Array.isArray(node.children) && node.children.length > 0)
     out.children = node.children.map(convertWdaNode);
   return out;
 };
-server.tool(
+server.registerTool(
   "get_accessibility_tree_android",
-  "Get the accessibility tree from a connected Android device or emulator via ADB and uiautomator. Returns the UI hierarchy as XML.",
   {
-    deviceId: external_exports.string().optional().describe("ADB device ID (e.g. emulator-5554). If omitted, uses the first connected device.")
+    description: "Get the accessibility tree from a connected Android device or emulator via ADB and uiautomator. Returns the UI hierarchy as XML.",
+    inputSchema: {
+      deviceId: external_exports.string().optional().describe(
+        "ADB device ID (e.g. emulator-5554). If omitted, uses the first connected device."
+      )
+    }
   },
   async ({ deviceId }) => {
     try {
       runCommand("adb version");
     } catch {
-      return errorResponse("adb not found. Install Android SDK platform-tools and make sure adb is in your PATH.");
+      return errorResponse(
+        "adb not found. Install Android SDK platform-tools and make sure adb is in your PATH."
+      );
     }
     let resolvedDeviceId = deviceId;
     if (!resolvedDeviceId) {
@@ -21033,38 +21039,56 @@ server.tool(
           }
         }
       } catch (e) {
-        return errorResponse(`Failed to list ADB devices: ${e.message}`);
+        return errorResponse(
+          `Failed to list ADB devices: ${e.message}`
+        );
       }
       if (!resolvedDeviceId) {
-        return errorResponse("No connected Android device or emulator found. Make sure ADB is running and a device is connected.");
+        return errorResponse(
+          "No connected Android device or emulator found. Make sure ADB is running and a device is connected."
+        );
       }
     }
-    const adbPrefix = `-s ${resolvedDeviceId}`;
+    const adbDeviceIdOption = `-s ${resolvedDeviceId}`;
     try {
-      runCommand(`adb ${adbPrefix} shell uiautomator dump /sdcard/uidump.xml`);
+      runCommand(
+        `adb ${adbDeviceIdOption} shell uiautomator dump /sdcard/uidump.xml`
+      );
     } catch (e) {
-      return errorResponse(`uiautomator dump failed on device ${resolvedDeviceId}: ${e.message}`);
+      return errorResponse(
+        `uiautomator dump failed on device ${resolvedDeviceId}: ${e.message}`
+      );
     }
     try {
-      runCommand(`adb ${adbPrefix} pull /sdcard/uidump.xml /tmp/uidump.xml`);
+      runCommand(
+        `adb ${adbDeviceIdOption} pull /sdcard/uidump.xml /tmp/uidump.xml`
+      );
     } catch (e) {
-      return errorResponse(`Failed to pull dump file from device: ${e.message}`);
+      return errorResponse(
+        `Failed to pull dump file from device: ${e.message}`
+      );
     }
     let xml;
     try {
       xml = readFileSync("/tmp/uidump.xml", "utf-8").trim();
     } catch (e) {
-      return errorResponse(`Failed to read dump file: ${e.message}`);
+      return errorResponse(
+        `Failed to read dump file: ${e.message}`
+      );
     }
     return { content: [{ type: "text", text: xml }] };
   }
 );
-server.tool(
+server.registerTool(
   "get_accessibility_tree_ios",
-  "Get the accessibility tree from a booted iOS simulator using WebDriverAgent. WebDriverAgent must already be running and listening on port 8100. Returns a simplified tree (type, label, value, traits) to reduce token usage.",
   {
-    appId: external_exports.string().optional().describe("Bundle identifier of the app to bring to foreground before fetching the tree (e.g. com.example.MyApp). If omitted the current foreground app is used."),
-    wdaPort: external_exports.number().optional().default(8100).describe("Port WebDriverAgent is listening on. Defaults to 8100.")
+    description: "Get the accessibility tree from a booted iOS simulator using WebDriverAgent. WebDriverAgent must already be running and listening on port 8100. Returns a simplified tree (type, label, value, traits) to reduce token usage.",
+    inputSchema: {
+      appId: external_exports.string().optional().describe(
+        "Bundle identifier of the app to bring to foreground before fetching the tree (e.g. com.example.MyApp). If omitted the current foreground app is used."
+      ),
+      wdaPort: external_exports.number().optional().default(8100).describe("Port WebDriverAgent is listening on. Defaults to 8100.")
+    }
   },
   async ({ appId, wdaPort }) => {
     if (process.platform !== "darwin") {
@@ -21075,34 +21099,55 @@ server.tool(
       const simList = runCommand("xcrun simctl list devices booted");
       const match = simList.match(/([A-F0-9-]{36})/i);
       if (!match) {
-        return errorResponse("No booted iOS simulator found. Boot a simulator first with `xcrun simctl boot <deviceId>` or from Xcode.");
+        return errorResponse(
+          "No booted iOS simulator found. Boot a simulator first with `xcrun simctl boot <deviceId>` or from Xcode."
+        );
       }
       deviceId = match[1];
     } catch (e) {
-      return errorResponse(`Failed to list simulators: ${e.message}`);
+      return errorResponse(
+        `Failed to list simulators: ${e.message}`
+      );
     }
     if (appId) {
       try {
         runCommand(`xcrun simctl launch ${deviceId} ${appId}`);
       } catch (e) {
-        return errorResponse(`Failed to launch app ${appId} on simulator ${deviceId}: ${e.message}`);
+        return errorResponse(
+          `Failed to launch app ${appId} on simulator ${deviceId}: ${e.message}`
+        );
       }
       await new Promise((resolve) => setTimeout(resolve, 1e3));
     }
     let raw;
     try {
-      raw = runCommand(`curl -sf -X GET -H "Accept: application/json" -H "Content-Type: application/json" "http://127.0.0.1:${wdaPort}/source?format=json"`);
+      raw = runCommand(
+        `curl -sf -X GET -H "Accept: application/json" -H "Content-Type: application/json" "http://127.0.0.1:${wdaPort}/source?format=json"`
+      );
     } catch {
-      return errorResponse(`Could not reach WebDriverAgent on port ${wdaPort}. Make sure it is running: xcrun simctl launch ${deviceId} com.facebook.WebDriverAgentRunner.xctrunner`);
+      return errorResponse(
+        `Could not reach WebDriverAgent on port ${wdaPort}. Make sure it is running: xcrun simctl launch ${deviceId} com.facebook.WebDriverAgentRunner.xctrunner`
+      );
     }
     let tree;
     try {
       tree = convertWdaNode(JSON.parse(raw).value);
     } catch (e) {
-      return errorResponse(`Failed to parse WebDriverAgent response: ${e.message}`);
+      return errorResponse(
+        `Failed to parse WebDriverAgent response: ${e.message}`
+      );
     }
-    return { content: [{ type: "text", text: JSON.stringify(tree, null, 2) }] };
+    return {
+      content: [{ type: "text", text: JSON.stringify(tree, null, 2) }]
+    };
   }
 );
-var transport = new StdioServerTransport();
-await server.connect(transport);
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("Accessibility Tree MCP Server running on stdio");
+}
+main().catch((error2) => {
+  console.error("Fatal error:", error2);
+  process.exit(1);
+});

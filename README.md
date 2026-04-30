@@ -1,6 +1,6 @@
 # Theodo Group Claude Plugins
 
-A collection of Claude Code plugins by Theodo Apps.
+A collection of Claude Code plugins by Theodo.
 
 ## Plugins
 
@@ -106,6 +106,7 @@ Add the marketplace from GitHub, then install a plugin:
 ```sh
 /plugin marketplace add git@github.com:theodo-group/claude-plugins.git
 /plugin install accessibility@theodo-group-claude-plugins
+/reload-plugins
 ```
 
 ### Local (for contributors)
@@ -123,4 +124,25 @@ First clone the repo and build the MCP server (see [Development setup](#developm
 ```sh
 /plugin marketplace add ./path/to/claude-plugins
 /plugin install accessibility@theodo-group-claude-plugins
+/reload-plugins
 ```
+
+Or you can also add then manually
+
+1.
+
+```sh
+/plugin
+```
+
+2. Go to marketplace tab (tap twice on keyboard right arrow)
+3. Add marketplace with relative path
+4.
+
+```sh
+/plugin
+```
+
+5. Go to marketplace tab (tap twice on keyboard right arrow)
+6. Select theodo marketplace
+7. Add plugin

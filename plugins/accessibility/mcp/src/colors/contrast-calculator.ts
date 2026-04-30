@@ -1,7 +1,7 @@
 /**
  * WCAG 2.1 Contrast Ratio Calculator
  *
- * Implements the exact contrast ratio calculation algorithm as specified in Colors.md
+ * Implements the exact contrast ratio calculation algorithm
  * This tool ensures accurate accessibility analysis by following WCAG guidelines precisely.
  *
  * Supported color formats:
@@ -34,30 +34,32 @@ interface ParsedColor {
 /**
  * Convert hex string to RGBA values
  */
-function hexToRgba(hex: string): ParsedColor | null {
-  hex = hex.replace('#', '');
+export function hexToRgba(hex: string): ParsedColor | null {
+  // Remove the leading '#' if present
+  const normalizedHex = hex.replace('#', '');
 
-  if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join('');
-  }
-  if (hex.length === 4) {
-    hex = hex.split('').map(c => c + c).join('');
-  }
+  // Expand 3-digit and 4-digit hex to 6-digit and 8-digit
+  // #abc -> #aabbcc, #abcd -> #aabbccdd
+  const expandedHex = (normalizedHex.length === 3 || normalizedHex.length === 4)
+    ? normalizedHex.split('').map(c => c + c).join('')
+    : normalizedHex;
 
-  if (hex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(hex)) {
+  // 8-digit hex with alpha
+  if (expandedHex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(expandedHex)) {
     return {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16),
-      a: parseInt(hex.substring(6, 8), 16) / 255,
+      r: parseInt(expandedHex.substring(0, 2), 16),
+      g: parseInt(expandedHex.substring(2, 4), 16),
+      b: parseInt(expandedHex.substring(4, 6), 16),
+      a: Math.round(parseInt(expandedHex.substring(6, 8), 16) / 255 * 100) / 100,
     };
   }
 
-  if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+  // 6-digit hex without alpha
+  if (expandedHex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(expandedHex)) {
     return {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16),
+      r: parseInt(expandedHex.substring(0, 2), 16),
+      g: parseInt(expandedHex.substring(2, 4), 16),
+      b: parseInt(expandedHex.substring(4, 6), 16),
       a: 1,
     };
   }
@@ -68,22 +70,38 @@ function hexToRgba(hex: string): ParsedColor | null {
 /**
  * Convert HSL (h: 0-360, s: 0-1, l: 0-1) to RGB (0-255)
  */
-function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-  h = ((h % 360) + 360) % 360;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-  const m = l - c / 2;
+export function hslToRgb(hue: number, saturation: number, lightness: number): { r: number; g: number; b: number } {
+  // Clamp hue to [0, 360°); double modulo handles negative inputs (e.g. -30 → 330)
+  const normalizedHue = ((hue % 360) + 360) % 360;
+
+  // Chroma represent color intensity: zero for grays, peaks at full saturation + mid lightness
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+
+  // Channel that rises/falls as the hue crosses a 60° sector boundary
+  const chromaRamp = chroma * (1 - Math.abs((normalizedHue / 60) % 2 - 1));
+
+  // Shift all channels to match the target lightness
+  const lightnessAdjustment = lightness - chroma / 2;
+
   let r = 0, g = 0, b = 0;
-  if (h < 60)       { r = c; g = x; b = 0; }
-  else if (h < 120) { r = x; g = c; b = 0; }
-  else if (h < 180) { r = 0; g = c; b = x; }
-  else if (h < 240) { r = 0; g = x; b = c; }
-  else if (h < 300) { r = x; g = 0; b = c; }
-  else              { r = c; g = 0; b = x; }
+  if (normalizedHue < 60) {
+    r = chroma; g = chromaRamp; b = 0;
+  } else if (normalizedHue < 120) {
+    r = chromaRamp; g = chroma; b = 0;
+  } else if (normalizedHue < 180) {
+    r = 0; g = chroma; b = chromaRamp;
+  } else if (normalizedHue < 240) {
+    r = 0; g = chromaRamp; b = chroma;
+  } else if (normalizedHue < 300) {
+    r = chromaRamp; g = 0; b = chroma;
+  } else {
+    r = chroma; g = 0; b = chromaRamp;
+  }
+  
   return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255),
+    r: Math.round((r + lightnessAdjustment) * 255),
+    g: Math.round((g + lightnessAdjustment) * 255),
+    b: Math.round((b + lightnessAdjustment) * 255),
   };
 }
 
@@ -92,51 +110,68 @@ function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: n
  * Supports: #hex, rgb(), rgba(), hsl(), hsla()
  */
 function parseColor(color: string): ParsedColor | null {
-  const s = color.trim();
+  const trimmedColor = color.trim();
 
   // Hex
-  if (s.startsWith('#') || /^[0-9A-Fa-f]{3,8}$/.test(s)) {
-    return hexToRgba(s);
+  if (trimmedColor.startsWith('#') || /^[0-9A-Fa-f]{3,8}$/.test(trimmedColor)) {
+    return hexToRgba(trimmedColor);
   }
 
   // rgb() / rgba() — legacy comma syntax and modern space syntax
-  const rgbMatch = s.match(
+  const rgbMatch = trimmedColor.match(
     /^rgba?\(\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
   );
   if (rgbMatch) {
     const parse = (v: string, max: number) =>
       v.endsWith('%') ? (parseFloat(v) / 100) * max : parseFloat(v);
-    const a = rgbMatch[4] !== undefined
+    const alpha = rgbMatch[4] !== undefined
       ? (rgbMatch[4].endsWith('%') ? parseFloat(rgbMatch[4]) / 100 : parseFloat(rgbMatch[4]))
       : 1;
     return {
       r: Math.min(255, Math.round(parse(rgbMatch[1], 255))),
       g: Math.min(255, Math.round(parse(rgbMatch[2], 255))),
       b: Math.min(255, Math.round(parse(rgbMatch[3], 255))),
-      a,
+      a: alpha,
     };
   }
 
   // hsl() / hsla()
-  const hslMatch = s.match(
-    /^hsla?\(\s*([\d.]+(?:deg|rad|turn)?)\s*[,\s]\s*([\d.]+)%\s*[,\s]\s*([\d.]+)%(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
+  const hslMatch = trimmedColor.match(
+    /^hsla?\(\s*(-?[\d.]+(?:deg|rad|turn)?)\s*[,\s]\s*([\d.]+)%\s*[,\s]\s*([\d.]+)%(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
   );
   if (hslMatch) {
-    let h = parseFloat(hslMatch[1]);
-    if (hslMatch[1].endsWith('rad'))  h = h * (180 / Math.PI);
-    if (hslMatch[1].endsWith('turn')) h = h * 360;
-    const rgb = hslToRgb(h, parseFloat(hslMatch[2]) / 100, parseFloat(hslMatch[3]) / 100);
-    const a = hslMatch[4] !== undefined
+    let hue = parseFloat(hslMatch[1]);
+    if (hslMatch[1].endsWith('rad')) {
+      hue = hue * (180 / Math.PI);
+    }
+    if (hslMatch[1].endsWith('turn')) {
+      hue = hue * 360;
+    }
+    const rgb = hslToRgb(hue, parseFloat(hslMatch[2]) / 100, parseFloat(hslMatch[3]) / 100);
+    const alpha = hslMatch[4] !== undefined
       ? (hslMatch[4].endsWith('%') ? parseFloat(hslMatch[4]) / 100 : parseFloat(hslMatch[4]))
       : 1;
-    return { ...rgb, a };
+    return { ...rgb, a: alpha };
   }
 
   return null;
 }
 
 /**
- * Composite a semi-transparent color over an opaque background (Porter-Duff "over")
+ * Composite a semi-transparent color over an opaque background (Porter-Duff "over").
+ *
+ * WCAG contrast ratios require opaque RGB values — luminance cannot be computed
+ * from a color with alpha < 1, because what the eye sees is the blend of that
+ * color with whatever sits behind it. This function resolves a translucent
+ * foreground against a known opaque background so the result can be fed into
+ * the luminance formula.
+ *
+ * Formula (per channel): result = fg × α + bg × (1 − α)
+ *
+ * @example
+ * // 50%-opaque black on white renders as mid-gray
+ * compositeOver({ r: 0, g: 0, b: 0, a: 0.5 }, { r: 255, g: 255, b: 255 });
+ * // → { r: 128, g: 128, b: 128 }
  */
 function compositeOver(
   fg: ParsedColor,
@@ -205,8 +240,12 @@ export function calculateWcagContrast(
   const fgParsed = parseColor(foreground);
   const bgParsed = parseColor(background);
 
-  if (!fgParsed) return { error: `Invalid foreground color format: ${foreground}` };
-  if (!bgParsed) return { error: `Invalid background color format: ${background}` };
+  if (!fgParsed) {
+    return { error: `Invalid foreground color format: ${foreground}` };
+  }
+  if (!bgParsed) {
+    return { error: `Invalid background color format: ${background}` };
+  }
 
   const white = { r: 255, g: 255, b: 255 };
   const bgOpaque = bgParsed.a < 1 ? compositeOver(bgParsed, white) : bgParsed;

@@ -12,7 +12,7 @@
             "name": "accessibility",
             "source": "./plugins/accessibility",
             "description": "A plugin to check your react-native app for accessibility features. It also includes suggestions to improve accessibility and make your app more inclusive.",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "keywords": [
                 "react-native",
                 "accessibility",
