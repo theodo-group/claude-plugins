@@ -20987,96 +20987,95 @@ var StdioServerTransport = class {
 
 // src/colors/contrast-calculator.ts
 function hexToRgba(hex) {
-  hex = hex.replace("#", "");
-  if (hex.length === 3) {
-    hex = hex.split("").map((c) => c + c).join("");
-  }
-  if (hex.length === 4) {
-    hex = hex.split("").map((c) => c + c).join("");
-  }
-  if (hex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(hex)) {
+  const normalizedHex = hex.replace("#", "");
+  const expandedHex = normalizedHex.length === 3 || normalizedHex.length === 4 ? normalizedHex.split("").map((c) => c + c).join("") : normalizedHex;
+  if (expandedHex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(expandedHex)) {
     return {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16),
-      a: parseInt(hex.substring(6, 8), 16) / 255
+      r: parseInt(expandedHex.substring(0, 2), 16),
+      g: parseInt(expandedHex.substring(2, 4), 16),
+      b: parseInt(expandedHex.substring(4, 6), 16),
+      a: Math.round(parseInt(expandedHex.substring(6, 8), 16) / 255 * 100) / 100
     };
   }
-  if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+  if (expandedHex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(expandedHex)) {
     return {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16),
+      r: parseInt(expandedHex.substring(0, 2), 16),
+      g: parseInt(expandedHex.substring(2, 4), 16),
+      b: parseInt(expandedHex.substring(4, 6), 16),
       a: 1
     };
   }
   return null;
 }
-function hslToRgb(h, s, l) {
-  h = (h % 360 + 360) % 360;
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(h / 60 % 2 - 1));
-  const m = l - c / 2;
+function hslToRgb(hue, saturation, lightness) {
+  const normalizedHue = (hue % 360 + 360) % 360;
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const chromaRamp = chroma * (1 - Math.abs(normalizedHue / 60 % 2 - 1));
+  const lightnessAdjustment = lightness - chroma / 2;
   let r = 0, g = 0, b = 0;
-  if (h < 60) {
-    r = c;
-    g = x;
+  if (normalizedHue < 60) {
+    r = chroma;
+    g = chromaRamp;
     b = 0;
-  } else if (h < 120) {
-    r = x;
-    g = c;
+  } else if (normalizedHue < 120) {
+    r = chromaRamp;
+    g = chroma;
     b = 0;
-  } else if (h < 180) {
+  } else if (normalizedHue < 180) {
     r = 0;
-    g = c;
-    b = x;
-  } else if (h < 240) {
+    g = chroma;
+    b = chromaRamp;
+  } else if (normalizedHue < 240) {
     r = 0;
-    g = x;
-    b = c;
-  } else if (h < 300) {
-    r = x;
+    g = chromaRamp;
+    b = chroma;
+  } else if (normalizedHue < 300) {
+    r = chromaRamp;
     g = 0;
-    b = c;
+    b = chroma;
   } else {
-    r = c;
+    r = chroma;
     g = 0;
-    b = x;
+    b = chromaRamp;
   }
   return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255)
+    r: Math.round((r + lightnessAdjustment) * 255),
+    g: Math.round((g + lightnessAdjustment) * 255),
+    b: Math.round((b + lightnessAdjustment) * 255)
   };
 }
 function parseColor(color) {
-  const s = color.trim();
-  if (s.startsWith("#") || /^[0-9A-Fa-f]{3,8}$/.test(s)) {
-    return hexToRgba(s);
+  const trimmedColor = color.trim();
+  if (trimmedColor.startsWith("#") || /^[0-9A-Fa-f]{3,8}$/.test(trimmedColor)) {
+    return hexToRgba(trimmedColor);
   }
-  const rgbMatch = s.match(
+  const rgbMatch = trimmedColor.match(
     /^rgba?\(\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)\s*[,\s]\s*([\d.]+%?)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
   );
   if (rgbMatch) {
     const parse3 = (v, max) => v.endsWith("%") ? parseFloat(v) / 100 * max : parseFloat(v);
-    const a = rgbMatch[4] !== void 0 ? rgbMatch[4].endsWith("%") ? parseFloat(rgbMatch[4]) / 100 : parseFloat(rgbMatch[4]) : 1;
+    const alpha = rgbMatch[4] !== void 0 ? rgbMatch[4].endsWith("%") ? parseFloat(rgbMatch[4]) / 100 : parseFloat(rgbMatch[4]) : 1;
     return {
       r: Math.min(255, Math.round(parse3(rgbMatch[1], 255))),
       g: Math.min(255, Math.round(parse3(rgbMatch[2], 255))),
       b: Math.min(255, Math.round(parse3(rgbMatch[3], 255))),
-      a
+      a: alpha
     };
   }
-  const hslMatch = s.match(
-    /^hsla?\(\s*([\d.]+(?:deg|rad|turn)?)\s*[,\s]\s*([\d.]+)%\s*[,\s]\s*([\d.]+)%(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
+  const hslMatch = trimmedColor.match(
+    /^hsla?\(\s*(-?[\d.]+(?:deg|rad|turn)?)\s*[,\s]\s*([\d.]+)%\s*[,\s]\s*([\d.]+)%(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
   );
   if (hslMatch) {
-    let h = parseFloat(hslMatch[1]);
-    if (hslMatch[1].endsWith("rad")) h = h * (180 / Math.PI);
-    if (hslMatch[1].endsWith("turn")) h = h * 360;
-    const rgb = hslToRgb(h, parseFloat(hslMatch[2]) / 100, parseFloat(hslMatch[3]) / 100);
-    const a = hslMatch[4] !== void 0 ? hslMatch[4].endsWith("%") ? parseFloat(hslMatch[4]) / 100 : parseFloat(hslMatch[4]) : 1;
-    return { ...rgb, a };
+    let hue = parseFloat(hslMatch[1]);
+    if (hslMatch[1].endsWith("rad")) {
+      hue = hue * (180 / Math.PI);
+    }
+    if (hslMatch[1].endsWith("turn")) {
+      hue = hue * 360;
+    }
+    const rgb = hslToRgb(hue, parseFloat(hslMatch[2]) / 100, parseFloat(hslMatch[3]) / 100);
+    const alpha = hslMatch[4] !== void 0 ? hslMatch[4].endsWith("%") ? parseFloat(hslMatch[4]) / 100 : parseFloat(hslMatch[4]) : 1;
+    return { ...rgb, a: alpha };
   }
   return null;
 }
@@ -21114,8 +21113,12 @@ function getRecommendation(ratio, passes) {
 function calculateWcagContrast(foreground, background) {
   const fgParsed = parseColor(foreground);
   const bgParsed = parseColor(background);
-  if (!fgParsed) return { error: `Invalid foreground color format: ${foreground}` };
-  if (!bgParsed) return { error: `Invalid background color format: ${background}` };
+  if (!fgParsed) {
+    return { error: `Invalid foreground color format: ${foreground}` };
+  }
+  if (!bgParsed) {
+    return { error: `Invalid background color format: ${background}` };
+  }
   const white = { r: 255, g: 255, b: 255 };
   const bgOpaque = bgParsed.a < 1 ? compositeOver(bgParsed, white) : bgParsed;
   const fgOpaque = fgParsed.a < 1 ? compositeOver(fgParsed, bgOpaque) : fgParsed;
