@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hexToRgba, hslToRgb } from './contrast-calculator.js';
+import { calculateWcagContrast, batchCalculateContrast, hexToRgba, hslToRgb } from './contrast-calculator.js';
 
 describe('hexToRgba', () => {
   it('parses 6-digit hex', () => {
@@ -107,5 +107,135 @@ describe('hslToRgb', () => {
   it('wraps negative hue', () => {
     expect(hslToRgb(-30, 1, 0.5)).toEqual(hslToRgb(330, 1, 0.5));  // rose
     expect(hslToRgb(-120, 1, 0.5)).toEqual(hslToRgb(240, 1, 0.5)); // blue
+  });
+});
+
+describe('calculateWcagContrast', () => {
+  describe('hex colors', () => {
+    it('black on white returns 21:1', () => {
+      const result = calculateWcagContrast('#000000', '#ffffff');
+      expect('error' in result).toBe(false);
+      if ('error' in result) return;
+      expect(result.contrastRatio).toBe(21);
+      expect(result.passes.normalText).toBe(true);
+      expect(result.passes.largeText).toBe(true);
+    });
+
+    it('white on white returns 1:1', () => {
+      const result = calculateWcagContrast('#ffffff', '#ffffff');
+      expect('error' in result).toBe(false);
+      if ('error' in result) return;
+      expect(result.contrastRatio).toBe(1);
+      expect(result.passes.normalText).toBe(false);
+      expect(result.passes.largeText).toBe(false);
+    });
+
+    it('3-digit shorthand expands correctly', () => {
+      const short = calculateWcagContrast('#000', '#fff');
+      const full = calculateWcagContrast('#000000', '#ffffff');
+      expect('error' in short).toBe(false);
+      expect('error' in full).toBe(false);
+      if ('error' in short || 'error' in full) return;
+      expect(short.contrastRatio).toBe(full.contrastRatio);
+    });
+
+    it('#767676 on white just passes AA normal text (≥4.5)', () => {
+      const result = calculateWcagContrast('#767676', '#ffffff');
+      expect('error' in result).toBe(false);
+      if ('error' in result) return;
+      expect(result.contrastRatio).toBeGreaterThanOrEqual(4.5);
+      expect(result.passes.normalText).toBe(true);
+    });
+  });
+
+  describe('rgb() colors', () => {
+    it('rgb() black on white matches hex result', () => {
+      const rgb = calculateWcagContrast('rgb(0, 0, 0)', 'rgb(255, 255, 255)');
+      const hex = calculateWcagContrast('#000000', '#ffffff');
+      expect('error' in rgb).toBe(false);
+      expect('error' in hex).toBe(false);
+      if ('error' in rgb || 'error' in hex) return;
+      expect(rgb.contrastRatio).toBe(hex.contrastRatio);
+    });
+
+    it('semi-transparent foreground is composited over background', () => {
+      // rgba(0,0,0,0.5) over white composites to rgb(128,128,128)
+      const result = calculateWcagContrast('rgba(0, 0, 0, 0.5)', '#ffffff');
+      expect('error' in result).toBe(false);
+      if ('error' in result) return;
+      expect(result.contrastRatio).toBeLessThan(21);
+      expect(result.contrastRatio).toBeGreaterThan(1);
+    });
+  });
+
+  describe('hsl() colors', () => {
+    it('hsl red matches hex red', () => {
+      const hsl = calculateWcagContrast('hsl(0, 100%, 50%)', '#ffffff');
+      const hex = calculateWcagContrast('#ff0000', '#ffffff');
+      expect('error' in hsl).toBe(false);
+      expect('error' in hex).toBe(false);
+      if ('error' in hsl || 'error' in hex) return;
+      expect(hsl.contrastRatio).toBe(hex.contrastRatio);
+    });
+
+    it('hsl(0, 0%, 0%) is black', () => {
+      const result = calculateWcagContrast('hsl(0, 0%, 0%)', '#ffffff');
+      expect('error' in result).toBe(false);
+      if ('error' in result) return;
+      expect(result.contrastRatio).toBe(21);
+    });
+
+    it('negative hue wraps correctly', () => {
+      // hsl(-60, 100%, 50%) == hsl(300, 100%, 50%) == magenta
+      const negative = calculateWcagContrast('hsl(-60, 100%, 50%)', '#ffffff');
+      const positive = calculateWcagContrast('hsl(300, 100%, 50%)', '#ffffff');
+      expect('error' in negative).toBe(false);
+      expect('error' in positive).toBe(false);
+      if ('error' in negative || 'error' in positive) return;
+      expect(negative.contrastRatio).toBe(positive.contrastRatio);
+    });
+  });
+
+  describe('invalid inputs', () => {
+    it('returns error for invalid foreground', () => {
+      const result = calculateWcagContrast('not-a-color', '#ffffff');
+      expect('error' in result).toBe(true);
+    });
+
+    it('returns error for invalid background', () => {
+      const result = calculateWcagContrast('#000000', 'not-a-color');
+      expect('error' in result).toBe(true);
+    });
+  });
+
+  describe('luminance values', () => {
+    it('white has luminance 1, black has luminance 0', () => {
+      const result = calculateWcagContrast('#000000', '#ffffff');
+      expect('error' in result).toBe(false);
+      if ('error' in result) return;
+      expect(result.luminance.background).toBe(1);
+      expect(result.luminance.foreground).toBe(0);
+    });
+  });
+});
+
+describe('batchCalculateContrast', () => {
+  it('processes multiple combinations', () => {
+    const results = batchCalculateContrast([
+      { foreground: '#000000', background: '#ffffff', description: 'black on white' },
+      { foreground: '#ffffff', background: '#ffffff', description: 'white on white' },
+    ]);
+    expect(results).toHaveLength(2);
+    expect(results[0].contrastRatio).toBe(21);
+    expect(results[0].description).toBe('black on white');
+    expect(results[1].contrastRatio).toBe(1);
+  });
+
+  it('returns zero contrast ratio for invalid colors', () => {
+    const results = batchCalculateContrast([
+      { foreground: 'not-a-color', background: '#ffffff' },
+    ]);
+    expect(results[0].contrastRatio).toBe(0);
+    expect(results[0].passes.normalText).toBe(false);
   });
 });
