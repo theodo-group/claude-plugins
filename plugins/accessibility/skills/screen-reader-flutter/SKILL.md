@@ -10,15 +10,97 @@ description: A skill that helps Flutter developers check the screen reader acces
 Before fetching the accessibility tree, check that the required device is available:
 
 - **Android**: run `adb devices` and verify at least one device is listed (not just the header). If no device is connected, stop and ask the user to connect a device.
-- **iOS**: run `xcrun xctrace list devices` (or `instruments -s devices`) to verify a device is connected. Also confirm that WebDriverAgent is installed and running on the device — if it is not, stop and ask the user to start WebDriverAgent before continuing.
+- **iOS**: run the following to check what's available — if multiple results appear, ask the user which one to use:
+  ```bash
+  echo "=== Simulators ===" && xcrun simctl list devices | grep "(Booted)" | sed 's/^ *//'
+  echo "=== Devices ===" && xcrun devicectl list devices --hide-headers | grep "connected" | grep -v "No devices found"
+  ```
+  Stop and ask the user to boot a simulator or connect a physical device if nothing appears.
+
+  Then follow the setup for the chosen target:
+
+  ### If simulator
+
+  **Check if WDA is installed**:
+  ```bash
+  xcrun simctl listapps booted | grep -i "WebDriverAgentRunner"
+  ```
+  If not installed, check Appium and the XCUITest driver are available:
+  ```bash
+  appium driver list --installed | grep xcuitest
+  ```
+  If not, install them:
+  ```bash
+  npm install -g appium && appium driver install xcuitest
+  ```
+  Then build WDA (no code signing needed for simulator) and install it:
+  ```bash
+  xcodebuild \
+    -project "$(find ~/.appium -name WebDriverAgent.xcodeproj | head -1)" \
+    -scheme WebDriverAgentRunner \
+    -destination "id=<UDID>" \
+    build-for-testing && \
+  xcrun simctl install booted "$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/WebDriverAgentRunner-Runner.app" | grep -v "Index.noindex" | head -1)"
+  # grep -v "Index.noindex" excludes Xcode's internal indexing folder which contains incomplete binaries (no bundle ID) — we want the real build output
+  ```
+
+  **Check if WDA is running**:
+  ```bash
+  curl -s http://localhost:8100/status
+  ```
+  If not running, launch it:
+  ```bash
+  xcrun simctl launch <UDID> com.facebook.WebDriverAgentRunner.xctrunner
+  ```
+
+  ### If physical device
+
+  **Check if WDA is installed** (use the UDID from the device detection step):
+  ```bash
+  xcrun devicectl device info apps --device <UDID> 2>&1 | grep -i "WebDriverAgentRunner"
+  ```
+  If not installed, check Appium and the XCUITest driver are available:
+  ```bash
+  appium driver list --installed | grep xcuitest
+  ```
+  If not, install them:
+  ```bash
+  npm install -g appium && appium driver install xcuitest
+  ```
+  Then build WDA and install it on the device (a `DEVELOPMENT_TEAM` is required for physical devices — ask the user for their Team ID, visible in Xcode under Signing & Capabilities):
+  ```bash
+  xcodebuild \
+    -project "$(find ~/.appium -name WebDriverAgent.xcodeproj | head -1)" \
+    -scheme WebDriverAgentRunner \
+    -destination "id=<UDID>" \
+    DEVELOPMENT_TEAM=<TEAM_ID> \
+    build-for-testing && \
+  xcrun devicectl device install app --device <UDID> \
+    "$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphoneos/WebDriverAgentRunner-Runner.app" | grep -v "Index.noindex" | head -1)"
+  # grep -v "Index.noindex" excludes Xcode's internal indexing folder which contains incomplete binaries (no bundle ID) — we want the real build output
+  ```
+  If Xcode shows a certificate trust error, the user must go to **Settings → General → VPN & Device Management** on the device and trust their developer certificate, then re-run.
+
+  **Forward the WDA port** — WDA runs on the device and must be tunnelled to localhost. Ask the user to run this in a separate terminal and leave it running:
+  ```bash
+  iproxy 8100 8100
+  ```
+
+  **Check if WDA is running**:
+  ```bash
+  curl -s http://localhost:8100/status
+  ```
+  If not running, launch it:
+  ```bash
+  xcrun devicectl device process launch --device <UDID> com.facebook.WebDriverAgentRunner.xctrunner
+  ```
 
 ## Fetch the tree
 
 Get the accessibility tree from the user's connected device using the MCP tools:
 
 - For **Android**: call `get_accessibility_tree_android` (optionally pass a `deviceId`).
-- For **iOS**: call `get_accessibility_tree_ios` (optionally pass an `appId` and `wdaPort`). WebDriverAgent must already be running on the simulator.
-
+- For **iOS**: call `get_accessibility_tree_ios` (optionally pass an `appId`, `wdaPort`, and `deviceId`). WebDriverAgent must already be running and port 8100 must be reachable (for physical devices, `iproxy 8100 8100` must be running).
 # Then, analyze the code referencing the accessibility tree
 
 ## 1. Identify the first component
