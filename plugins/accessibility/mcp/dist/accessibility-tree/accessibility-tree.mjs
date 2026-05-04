@@ -21082,39 +21082,74 @@ server.registerTool(
 server.registerTool(
   "get_accessibility_tree_ios",
   {
-    description: "Get the accessibility tree from a booted iOS simulator using WebDriverAgent. WebDriverAgent must already be running and listening on port 8100. Returns a simplified tree (type, label, value, traits) to reduce token usage.",
+    description: "Get the accessibility tree from a booted iOS simulator or connected physical device using WebDriverAgent. WebDriverAgent must already be running and reachable on the given port. Returns a simplified tree (type, label, value, traits) to reduce token usage.",
     inputSchema: {
       appId: external_exports.string().optional().describe(
         "Bundle identifier of the app to bring to foreground before fetching the tree (e.g. com.example.MyApp). If omitted the current foreground app is used."
       ),
-      wdaPort: external_exports.number().optional().default(8100).describe("Port WebDriverAgent is listening on. Defaults to 8100.")
+      wdaPort: external_exports.number().optional().default(8100).describe(
+        "Port WebDriverAgent is listening on. Defaults to 8100. Use a different port (e.g. 8101) when targeting a physical device while a simulator is also occupying 8100."
+      ),
+      deviceId: external_exports.string().optional().describe(
+        "UDID of the target simulator or physical device. If omitted, auto-detects: prefers a booted simulator, falls back to a connected physical device."
+      )
     }
   },
-  async ({ appId, wdaPort }) => {
+  async ({ appId, wdaPort, deviceId }) => {
     if (process.platform !== "darwin") {
       return errorResponse("iOS simulator support requires macOS.");
     }
-    let deviceId;
-    try {
-      const simList = runCommand("xcrun simctl list devices booted");
-      const match = simList.match(/([A-F0-9-]{36})/i);
-      if (!match) {
-        return errorResponse(
-          "No booted iOS simulator found. Boot a simulator first with `xcrun simctl boot <deviceId>` or from Xcode."
-        );
+    let resolvedDeviceId = deviceId;
+    let isPhysicalDevice = false;
+    if (resolvedDeviceId) {
+      try {
+        const simList = runCommand("xcrun simctl list devices booted");
+        isPhysicalDevice = !simList.includes(resolvedDeviceId);
+      } catch {
+        isPhysicalDevice = true;
       }
-      deviceId = match[1];
-    } catch (e) {
+    } else {
+      try {
+        const simList = runCommand("xcrun simctl list devices booted");
+        const match = simList.match(/([A-F0-9-]{36})/i);
+        if (match) resolvedDeviceId = match[1];
+      } catch {
+      }
+      if (!resolvedDeviceId) {
+        try {
+          const deviceList = runCommand(
+            "xcrun devicectl list devices --hide-headers"
+          );
+          for (const line of deviceList.split("\n")) {
+            if (!line.includes("connected")) continue;
+            const match = line.match(/([A-F0-9-]{36})/i);
+            if (match) {
+              resolvedDeviceId = match[1];
+              isPhysicalDevice = true;
+              break;
+            }
+          }
+        } catch {
+        }
+      }
+    }
+    if (!resolvedDeviceId) {
       return errorResponse(
-        `Failed to list simulators: ${e.message}`
+        "No booted iOS simulator or connected physical device found."
       );
     }
     if (appId) {
       try {
-        runCommand(`xcrun simctl launch ${deviceId} ${appId}`);
+        if (isPhysicalDevice) {
+          runCommand(
+            `xcrun devicectl device process launch --device ${resolvedDeviceId} ${appId}`
+          );
+        } else {
+          runCommand(`xcrun simctl launch ${resolvedDeviceId} ${appId}`);
+        }
       } catch (e) {
         return errorResponse(
-          `Failed to launch app ${appId} on simulator ${deviceId}: ${e.message}`
+          `Failed to launch app ${appId} on device ${resolvedDeviceId}: ${e.message}`
         );
       }
       await new Promise((resolve) => setTimeout(resolve, 1e3));
@@ -21125,8 +21160,9 @@ server.registerTool(
         `curl -sf -X GET -H "Accept: application/json" -H "Content-Type: application/json" "http://127.0.0.1:${wdaPort}/source?format=json"`
       );
     } catch {
+      const launchCmd = isPhysicalDevice ? `xcrun devicectl device process launch --device ${resolvedDeviceId} com.facebook.WebDriverAgentRunner.xctrunner` : `xcrun simctl launch ${resolvedDeviceId} com.facebook.WebDriverAgentRunner.xctrunner`;
       return errorResponse(
-        `Could not reach WebDriverAgent on port ${wdaPort}. Make sure it is running: xcrun simctl launch ${deviceId} com.facebook.WebDriverAgentRunner.xctrunner`
+        `Could not reach WebDriverAgent on port ${wdaPort}. Make sure it is running: ${launchCmd}`
       );
     }
     let tree;
