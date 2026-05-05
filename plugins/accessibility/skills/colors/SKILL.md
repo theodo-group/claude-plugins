@@ -4,6 +4,73 @@ description: Check color usage in your app (web or React Native) for accessibili
 disable-model-invocation: true
 ---
 
+# MANDATORY OUTPUT FORMAT
+
+You MUST structure your entire response using exactly the template below. Do NOT write any prose, explanation, or analysis outside of this structure. Fill each section in order. Do NOT skip sections — if a section has no violations, write the skip note shown in the template.
+
+---
+
+## Color Accessibility Report
+
+### Summary
+
+| Check | Status |
+|---|---|
+| Contrast (light theme) | ✅ Pass / ❌ Fail / ⚠️ Ambiguous |
+| Contrast (dark theme) | ✅ Pass / ❌ Fail / ⚠️ Ambiguous |
+| Color-only indicators | ✅ Pass / ❌ Fail |
+| Sensory sensitivity | ✅ Pass / ❌ Fail |
+
+---
+
+### 1. Contrast issues
+
+> _Skip this section if all contrast checks passed._
+
+**Thresholds reminder:**
+
+| Text type | Web | React Native | Required ratio |
+|---|---|---|---|
+| Normal text | < 24px (or < 18.67px bold) | < 18pt (or < 14pt bold) | ≥ 4.5:1 |
+| Large text | ≥ 24px (or ≥ 18.67px bold) | ≥ 18pt (or ≥ 14pt bold) | ≥ 3:1 |
+| Disabled text | any | any | ≥ 3:1 |
+| Focus indicator | web only | — | ≥ 3:1 |
+
+| Element | Location | Text size | Foreground | Background | Ratio | Result |
+|---|---|---|---|---|---|---|
+| `<ComponentName>` | `path/to/file.tsx:42` | BOTH | `#333333` | `#FFFFFF` | 12.6:1 | ✅ |
+| `<ComponentName>` | `path/to/file.tsx:88` | SMALL | `#AAAAAA` | `#FFFFFF` | 2.3:1 | ❌ |
+
+**Ambiguous colors** _(cannot be analyzed)_:
+
+- `path/to/file.tsx:55` — `var(--color-primary)` on `var(--surface-bg)`: unresolved CSS custom properties
+
+---
+
+### 2. Color-only indicators
+
+> _Skip this section if no violations were found._
+
+| Element | Location | Issue |
+|---|---|---|
+| Error message | `path/to/file.tsx:102` | Error state indicated only by red text — no icon or label |
+
+---
+
+### 3. Sensory sensitivity
+
+> _Skip this section if no violations were found._
+
+| Element | Location | Issue |
+|---|---|---|
+| Banner | `path/to/file.tsx:14` | Highly saturated color (`#FF0000`) used as background |
+
+---
+
+Would you like to know more about color accessibility or why accessibility matters? I can dive deeper into color guidelines using the `colors` skill, or explain the broader importance of accessibility with the `why-accessibility` skill.
+
+---
+
 # Color Accessibility Verification Guidelines
 
 These rules define when color usage in the application is considered **accessible**.
@@ -219,72 +286,3 @@ A color usage is **acceptable** if and only if:
 
 If any rule fails, we **must flag the usage as non-accessible**.
 
----
-
-## 6. Response template
-
-Use this structure when reporting color accessibility findings:
-
----
-
-## Color Accessibility Report
-
-### Summary
-
-| Check | Status |
-|---|---|
-| Contrast (light theme) | ✅ Pass / ❌ Fail / ⚠️ Ambiguous |
-| Contrast (dark theme) | ✅ Pass / ❌ Fail / ⚠️ Ambiguous |
-| Color-only indicators | ✅ Pass / ❌ Fail |
-| Sensory sensitivity | ✅ Pass / ❌ Fail |
-
----
-
-### 1. Contrast issues
-
-> _Skip this section if all contrast checks passed._
-
-**Thresholds reminder:**
-
-| Text type | Web | React Native | Required ratio |
-|---|---|---|---|
-| Normal text | < 24px (or < 18.67px bold) | < 18pt (or < 14pt bold) | ≥ 4.5:1 |
-| Large text | ≥ 24px (or ≥ 18.67px bold) | ≥ 18pt (or ≥ 14pt bold) | ≥ 3:1 |
-| Disabled text | any | any | ≥ 3:1 |
-| Focus indicator | web only | — | ≥ 3:1 |
-
-| Element | Location | Text size | Foreground | Background | Ratio | Result |
-|---|---|---|---|---|---|---|
-| `<ComponentName>` | `path/to/file.tsx:42` | BOTH | `#333333` | `#FFFFFF` | 12.6:1 | ✅ |
-| `<ComponentName>` | `path/to/file.tsx:88` | SMALL | `#AAAAAA` | `#FFFFFF` | 2.3:1 | ❌ |
-| `<ComponentName>` | `path/to/file.tsx:120` | BIG | `#777777` | `#FFFFFF` | 2.8:1 | ❌ |
-
-**Ambiguous colors** _(cannot be analyzed)_:
-
-- `path/to/file.tsx:55` — `var(--color-primary)` on `var(--surface-bg)`: unresolved CSS custom properties
-
----
-
-### 2. Color-only indicators
-
-> _Skip this section if no violations were found._
-
-| Element | Location | Issue |
-|---|---|---|
-| Error message | `path/to/file.tsx:102` | Error state indicated only by red text — no icon or label |
-| Selected tab | `path/to/file.tsx:210` | Selection indicated only by color change |
-
----
-
-### 3. Sensory sensitivity
-
-> _Skip this section if no violations were found._
-
-| Element | Location | Issue |
-|---|---|---|
-| Banner | `path/to/file.tsx:14` | Highly saturated color (`#FF0000`) used as background |
-| Chart | `path/to/file.tsx:67` | Heavy gradient overlay on text |
-
----
-
-Would you like to know more about color accessibility or why accessibility matters? I can dive deeper into color guidelines using the `colors` skill, or explain the broader importance of accessibility with the `why-accessibility` skill.
