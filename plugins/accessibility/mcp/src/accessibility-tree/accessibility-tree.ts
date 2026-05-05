@@ -175,9 +175,11 @@ server.registerTool(
     } else {
       try {
         const simList = runCommand("xcrun simctl list devices booted");
-        const match = simList.match(/([A-F0-9-]{36})/i);
-        if (match) resolvedDeviceId = match[1];
-      } catch {}
+        const simulatorUdidMatch = simList.match(/([A-F0-9-]{36})/i);
+        if (simulatorUdidMatch) { resolvedDeviceId = simulatorUdidMatch[1]; }
+      } catch {
+        // do nothing
+      }
 
       if (!resolvedDeviceId) {
         try {
@@ -186,9 +188,9 @@ server.registerTool(
           );
           for (const line of deviceList.split("\n")) {
             if (!line.includes("connected")) continue;
-            const match = line.match(/([A-F0-9-]{36})/i);
-            if (match) {
-              resolvedDeviceId = match[1];
+            const deviceUdidMatch = line.match(/([A-F0-9-]{36})/i);
+            if (deviceUdidMatch) {
+              resolvedDeviceId = deviceUdidMatch[1];
               isPhysicalDevice = true;
               break;
             }
@@ -222,6 +224,7 @@ server.registerTool(
 
     let raw: string;
     try {
+      // Get accessibility tree from Web driver agent
       raw = runCommand(
         `curl -sf -X GET -H "Accept: application/json" -H "Content-Type: application/json" "http://127.0.0.1:${wdaPort}/source?format=json"`,
       );
