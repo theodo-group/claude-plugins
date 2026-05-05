@@ -4,12 +4,13 @@ description: Check color usage in your app (web or React Native) for accessibili
 disable-model-invocation: true
 ---
 
-# MANDATORY OUTPUT FORMAT
+<mandatory-output-format>
 
-You MUST structure your entire response using exactly the template below. Do NOT write any prose, explanation, or analysis outside of this structure. Fill each section in order. Do NOT skip sections — if a section has no violations, write the skip note shown in the template.
+<instruction>
+You MUST structure your ENTIRE response using exactly the template inside `<template>`. Do NOT write any prose, explanation, or analysis outside of this structure. Fill each section in order. Do NOT reorder or rename sections. If a section has no violations, include it with its skip note — never omit a section entirely.
+</instruction>
 
----
-
+<template>
 ## Color Accessibility Report
 
 ### Summary
@@ -68,6 +69,9 @@ You MUST structure your entire response using exactly the template below. Do NOT
 ---
 
 Would you like to know more about color accessibility or why accessibility matters? I can dive deeper into color guidelines using the `colors` skill, or explain the broader importance of accessibility with the `why-accessibility` skill.
+</template>
+
+</mandatory-output-format>
 
 ---
 
