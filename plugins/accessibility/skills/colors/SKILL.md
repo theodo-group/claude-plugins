@@ -1,16 +1,14 @@
 ---
 name: colors
 description: Check color usage in your app (web or React Native) for accessibility compliance, including contrast, color-vision deficiencies, and sensory sensitivity.
+allowed-tools: Bash Read mcp__plugin_accessibility_contrast-calculator__calculate_contrast mcp__plugin_accessibility_contrast-calculator__batch_calculate_contrast
 disable-model-invocation: true
 ---
 
-<mandatory-output-format>
+# Output format  
 
-<instruction>
-You MUST structure your ENTIRE response using exactly the template inside `<template>`. Do NOT write any prose, explanation, or analysis outside of this structure. Fill each section in order. Do NOT reorder or rename sections. If a section has no violations, include it with its skip note — never omit a section entirely.
-</instruction>
+Structure your ENTIRE response using exactly the template below. Do NOT write any prose, explanation, or analysis outside of this structure. Fill each section in order. Do NOT reorder or rename sections. If a section has no violations, include it with its skip note — never omit a section entirely.
 
-<template>
 ## Color Accessibility Report
 
 ### Summary
@@ -69,7 +67,7 @@ You MUST structure your ENTIRE response using exactly the template inside `<temp
 ---
 
 Would you like to know more about color accessibility or why accessibility matters? I can dive deeper into color guidelines using the `colors` skill, or explain the broader importance of accessibility with the `why-accessibility` skill.
-</template>
+</output-template>
 
 </mandatory-output-format>
 
