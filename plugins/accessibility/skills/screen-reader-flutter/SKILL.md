@@ -1,6 +1,8 @@
 ---
 name: screen-reader-flutter
 description: A skill that helps Flutter developers check the screen reader accessibility of their apps by analyzing the accessibility tree and providing feedback on potential issues.
+allowed-tools: Bash Read mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_android mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_ios
+disable-model-invocation: true
 ---
 
 # Get the accessibility tree
