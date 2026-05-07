@@ -9,18 +9,28 @@ disable-model-invocation: true
 
 ## Prerequisites
 
-### Android
+Run both checks in parallel to auto-detect available devices:
 
-Run `adb devices` and verify at least one device is listed (not just the header). If no device is connected, stop and ask the user to connect a device.
+**Android:**
+```bash
+adb devices
+```
 
-### iOS
-
-Run the following to check what's available — if multiple results appear, ask the user which one to use:
+**iOS:**
 ```bash
 echo "=== Simulators ===" && xcrun simctl list devices | grep "(Booted)" | sed 's/^ *//'
-echo "=== Devices ===" && xcrun devicectl list devices --hide-headers | grep "connected" | grep -v "No devices found"
+echo "=== Devices ===" && xcrun devicectl list devices --hide-headers 2>/dev/null | grep "connected" | grep -v "No devices found"
 ```
-Stop and ask the user to boot a simulator or connect a physical device if nothing appears.
+
+Based on the results:
+- If **only Android** has a device → proceed with the Android MCP tool directly (no further setup needed).
+- If **only iOS** has a device → proceed with the iOS setup below.
+- If **both** have devices → ask the user which platform to use.
+- If **neither** → stop and ask the user to connect a device or boot a simulator.
+
+### iOS setup
+
+Check what's available — if multiple results appear, ask the user which one to use. Stop and ask the user to boot a simulator or connect a physical device if nothing appears.
 
 Then follow the setup for the chosen target:
 
