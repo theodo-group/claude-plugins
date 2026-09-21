@@ -12,8 +12,40 @@ Importantly, it does not claim to automatically make an app accessible or guaran
 
 - **Why accessibility** — Helps you make the ethical, legal, and business case for accessibility to stakeholders, tailored to your audience and context.
 - **Color checker** — Validates color contrast ratios against WCAG 2.1, checks for color-vision deficiency issues, and flags overstimulating colors. Uses the `contrast-calculator` MCP server for accurate calculations.
-- **Screen reader accessibility (React Native)** — Fetches the live UI hierarchy from a connected Android device (via ADB) or iOS simulator (via WebDriverAgent) and flags missing labels, roles, and other screen-reader issues in React Native apps. Uses the `accessibility-tree` MCP server.
-- **Screen reader accessibility (Flutter)** — Same accessibility-tree analysis as above, tailored to Flutter's semantics tree and widget conventions.
+- **Screen reader accessibility (React Native)** — Fetches the live UI hierarchy from a connected Android device or iOS simulator/device and flags missing labels, roles, and other screen-reader issues in React Native apps. On iOS you choose the backend: this plugin's `accessibility-tree` MCP server (WebDriverAgent) or [Argent](https://docs.swmansion.com/argent/) — see [Choosing an iOS backend](#choosing-an-ios-backend).
+- **Screen reader accessibility (Flutter)** — Same accessibility-tree analysis as above, tailored to Flutter's semantics tree and widget conventions. Backend A (WebDriverAgent) is the default here; Argent is offered but gated behind a check, because Flutter only builds its semantics tree while an accessibility service is active and Argent's iOS AX read is unverified against it.
+
+---
+
+## Choosing an iOS backend
+
+Reading the iOS accessibility tree needs something running on the device. The screen-reader skills support two backends and **ask you which one to use** — neither is installed or assumed by default.
+
+| | **A — WebDriverAgent** (bundled) | **B — Argent** (external) |
+|---|---|---|
+| Install | Appium + XCUITest driver + `xcodebuild` build of WDA; `iproxy` on physical devices | `npx @swmansion/argent@latest init` |
+| First run | ~10 min, and again after Xcode upgrades | ~2 min |
+| Processes to keep alive | WDA, plus an `iproxy` terminal on device | none |
+| Accessibility traits | full `traits` string preserved | collapsed to a single role; `selected` / `notEnabled` dropped |
+| Tree shape | nested, parent/child preserved | flat |
+| Navigates the app for you | no | yes |
+| Context cost | 2 MCP tools | ~80 MCP tools |
+
+Rule of thumb:
+
+- **Backend A** when the audit must prove grouping (`accessible={true}` wrappers) or `accessibilityState` from the device itself. Those checks depend on nesting and on multiple traits per element, which backend B's tree does not carry.
+- **Backend B** for a fast first pass, or when auditing several screens in one go — it can drive the UI between captures.
+
+**Android is not affected.** `get_accessibility_tree_android` only needs `adb` and returns the raw uncompressed `uiautomator` dump. Argent reads Android through the same `uiautomator dump` but passes `--compressed` and merges `content-desc` into the visible text, which hides exactly what this audit looks for — so the skills use the bundled tool on Android either way.
+
+Setup instructions for both live in each skill's `references/` folder:
+`skills/screen-reader-*/references/setup-webdriveragent.md` and `setup-argent.md`.
+
+> Note: those two guides are duplicated across the `screen-reader-react-native` and `screen-reader-flutter` skills (skills bundle their own resources). Keep them in sync when editing; only the last bullet of `setup-argent.md` is framework-specific.
+
+**On Flutter**, backend A is the default. Argent itself is framework-agnostic (it reads `uiautomator` and the iOS AX runtime, not React internals), but Flutter only builds its semantics tree while an accessibility service is attached — `uiautomator` is one, XCUITest is one, and whether Argent's iOS AX service is one has not been verified. The Flutter skill therefore asks for a quick `describe` sanity check before letting the audit proceed on backend B.
+
+**Color checking is unaffected by this choice** — Argent exposes no contrast or color tools, so the `contrast-calculator` MCP server is used regardless.
 
 ---
 
@@ -62,6 +94,10 @@ Once your changes made, you will need to run `npm run build` before `git push`.
 > "Compare the accessibility tree before and after I navigate to the settings screen"
 
 > "This is a Flutter app, check the semantics tree for missing labels"
+
+> "Use Argent instead of WebDriverAgent for this audit — I don't want to build WDA"
+
+> "Which iOS backend should I use if I care about grouping and accessibilityState?"
 
 ---
 

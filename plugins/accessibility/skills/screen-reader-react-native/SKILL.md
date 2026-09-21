@@ -1,15 +1,17 @@
 ---
 name: screen-reader-react-native
 description: A skill that helps React Native developers check the screen reader accessibility of their apps by analyzing the accessibility tree and providing feedback on potential issues.
-allowed-tools: Bash Read mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_android mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_ios
+allowed-tools: Bash Read AskUserQuestion mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_android mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_ios mcp__argent__list-devices mcp__argent__boot-device mcp__argent__launch-app mcp__argent__describe mcp__argent__native-describe-screen mcp__argent__await-screen-idle mcp__argent__gesture-tap mcp__argent__screenshot mcp__argent__stop-all-simulator-servers
 disable-model-invocation: true
 ---
 
 # Get the accessibility tree
 
-## Prerequisites
+The audit needs a live UI tree from a running app. There are two backends that can produce one. **Android needs no decision; iOS does.**
 
-Run both checks in parallel to auto-detect available devices:
+## Step 1 — Detect devices and backends
+
+Run these checks in parallel:
 
 **Android:**
 ```bash
@@ -22,99 +24,60 @@ echo "=== Simulators ===" && xcrun simctl list devices | grep "(Booted)" | sed '
 echo "=== Devices ===" && xcrun devicectl list devices --hide-headers 2>/dev/null | grep "connected" | grep -v "No devices found"
 ```
 
+**Argent (optional iOS backend):**
+```bash
+argent --version 2>/dev/null || echo "argent not installed"
+```
+Argent is also present if `mcp__argent__describe` appears in your tool list.
+
 Based on the results:
-- If **only Android** has a device → proceed with the Android MCP tool directly (no further setup needed).
-- If **only iOS** has a device → proceed with the iOS setup below.
+- If **only Android** has a device → go to "Android" below. No backend choice applies.
+- If **only iOS** has a device → go to "iOS — choose a backend".
 - If **both** have devices → ask the user which platform to use.
 - If **neither** → stop and ask the user to connect a device or boot a simulator.
 
-### iOS setup
+If multiple iOS simulators or devices appear, ask the user which one to target.
 
-Check what's available — if multiple results appear, ask the user which one to use. Stop and ask the user to boot a simulator or connect a physical device if nothing appears.
+## Android
 
-Then follow the setup for the chosen target:
+Call `get_accessibility_tree_android` (optionally pass a `deviceId`). It needs nothing but `adb`.
 
-#### If simulator
+It returns the **raw, uncompressed** `uiautomator` XML: every node with `content-desc`, `text`, `class`, `clickable`, `focusable`, `enabled`, `checked` and `bounds`.
 
-**Check if WDA is installed**:
-```bash
-xcrun simctl listapps booted | grep -i "WebDriverAgentRunner"
-```
-If not installed, check Appium and the XCUITest driver are available:
-```bash
-appium driver list --installed | grep xcuitest
-```
-If not, install them:
-```bash
-npm install -g appium && appium driver install xcuitest
-```
-Then build WDA (no code signing needed for simulator) and install it:
-```bash
-xcodebuild \
-  -project "$(find ~/.appium -name WebDriverAgent.xcodeproj | head -1)" \
-  -scheme WebDriverAgentRunner \
-  -destination "id=<UDID>" \
-  build-for-testing && \
-xcrun simctl install booted "$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphonesimulator/WebDriverAgentRunner-Runner.app" | grep -v "Index.noindex" | head -1)"
-# grep -v "Index.noindex" excludes Xcode's internal indexing folder which contains incomplete binaries (no bundle ID) — we want the real build output
-```
+> Argent's `describe` reads Android through the same `uiautomator dump`, but with `--compressed` and with `content-desc` folded into a single `label` field alongside the visible `text` — which erases the difference between "properly described" and "the screen reader happens to read the visible text". Use the plugin tool on Android even when Argent is installed. Argent is still worth using here to *navigate* between screens (`gesture-tap`, `launch-app`) between captures.
 
-**Check if WDA is running**:
-```bash
-curl -s http://localhost:8100/status
-```
-If not running, launch it:
-```bash
-xcrun simctl launch <UDID> com.facebook.WebDriverAgentRunner.xctrunner
-```
+## iOS — choose a backend
 
-#### If physical device
+Both backends work. They trade setup cost against tree fidelity, and the right answer depends on what the user wants out of the audit. **Present both with `AskUserQuestion` and let the user decide — do not pick for them.**
 
-**Check if WDA is installed** (use the UDID from the device detection step):
-```bash
-xcrun devicectl device info apps --device <UDID> 2>&1 | grep -i "WebDriverAgentRunner"
-```
-If not installed, check Appium and the XCUITest driver are available:
-```bash
-appium driver list --installed | grep xcuitest
-```
-If not, install them:
-```bash
-npm install -g appium && appium driver install xcuitest
-```
-Then build WDA and install it on the device (a `DEVELOPMENT_TEAM` is required for physical devices — ask the user for their Team ID, visible in Xcode under Signing & Capabilities):
-```bash
-xcodebuild \
-  -project "$(find ~/.appium -name WebDriverAgent.xcodeproj | head -1)" \
-  -scheme WebDriverAgentRunner \
-  -destination "id=<UDID>" \
-  DEVELOPMENT_TEAM=<TEAM_ID> \
-  build-for-testing && \
-xcrun devicectl device install app --device <UDID> \
-  "$(find ~/Library/Developer/Xcode/DerivedData -path "*/Debug-iphoneos/WebDriverAgentRunner-Runner.app" | grep -v "Index.noindex" | head -1)"
-# grep -v "Index.noindex" excludes Xcode's internal indexing folder which contains incomplete binaries (no bundle ID) — we want the real build output
-```
-If Xcode shows a certificate trust error, the user must go to **Settings → General → VPN & Device Management** on the device and trust their developer certificate, then re-run.
+| | **A — WebDriverAgent** (this plugin) | **B — Argent** |
+|---|---|---|
+| Setup | Appium + XCUITest driver + `xcodebuild` build of WDA; `iproxy` for physical devices | `npx @swmansion/argent@latest init` |
+| First run | ~10 min, repeated after Xcode upgrades | ~2 min |
+| Processes to keep alive | WDA, plus an `iproxy` terminal on device | none |
+| Traits | full `traits` string preserved | collapsed to one role; `selected` / `notEnabled` and second traits dropped |
+| Hierarchy | nested, parent/child preserved | flat — every element hangs off the root |
+| Drives the UI | no, the user navigates by hand | yes (`gesture-tap`, `launch-app`, `boot-device`) |
+| Extra context cost | 2 tools | ~80 tools |
 
-**Forward the WDA port** — WDA runs on the device and must be tunnelled to localhost. Ask the user to run this in a separate terminal and leave it running:
-```bash
-iproxy 8100 8100
-```
+What this means for the audit below:
 
-**Check if WDA is running**:
-```bash
-curl -s http://localhost:8100/status
-```
-If not running, launch it:
-```bash
-xcrun devicectl device process launch --device <UDID> com.facebook.WebDriverAgentRunner.xctrunner
-```
+- Steps **4 (state)** and **6 (grouping)** need trait detail and nesting. Only **backend A** can answer them from the tree; under backend B they must be read from the code or left unreported.
+- Steps **2, 3, 5 and 7** (roles, labels, missing descriptions, hints) are answerable under **either** backend.
+- Auditing several screens in one pass is only automatable under **backend B**.
+
+If the user has no preference: recommend **A** when they want the full audit to be provable from the device, **B** when they want a fast first pass or are auditing many screens.
+
+Then read the matching guide and follow it:
+- Backend A → `references/setup-webdriveragent.md`
+- Backend B → `references/setup-argent.md`
+
 ## Fetch the tree
 
-Get the accessibility tree from the user's connected device using the MCP tools:
+- **Backend A** → `get_accessibility_tree_ios` (optionally `appId`, `wdaPort`, `deviceId`). WDA must already be running and port 8100 reachable; on a physical device `iproxy 8100 8100` must be running.
+- **Backend B** → `mcp__argent__describe` with the `udid`, plus `mcp__argent__native-describe-screen` with an explicit `bundleId` on a simulator.
 
-- For **Android**: call `get_accessibility_tree_android` (optionally pass a `deviceId`).
-- For **iOS**: call `get_accessibility_tree_ios` (optionally pass an `appId`, `wdaPort`, and `deviceId`). WebDriverAgent must already be running and port 8100 must be reachable (for physical devices, `iproxy 8100 8100` must be running).
+State which backend produced the tree in your findings, and do not claim a step 4 or step 6 result that backend B's tree cannot support.
 
 # Then, analyze the code referencing the accessibility tree
 
