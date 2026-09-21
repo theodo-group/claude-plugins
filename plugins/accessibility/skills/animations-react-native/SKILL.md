@@ -2,7 +2,7 @@
 name: accessible-animations
 description: >
   Audit, implement, and review accessible animations in React Native and Reanimated. Use whenever work involves any animated or gesture-driven UI in React Native, even if accessibility is never mentioned: entering/exiting transitions, swipe or drag interactions, toasts and snackbars, bottom sheets, popovers, loading indicators, custom sliders or scrubbers, or animated state changes. Also use for explicitly accessibility-focused work: Reduce Motion, screen reader support for animated interfaces, accessibility actions, status announcements, or color-only animated state cues.
-allowed-tools: Bash Read Edit Write Grep Glob mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_android mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_ios
+allowed-tools: Bash Read Edit Write mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_android mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_ios
 ---
 
 # Accessible Animations
@@ -130,7 +130,7 @@ AccessibilityInfo.announceForAccessibility(
 
 Do not over-announce routine visual changes. Announce changes that affect task completion, state, navigation, or available actions.
 
-**Platform note.** `accessibilityLiveRegion` only works on Android; iOS ignores it. `AccessibilityInfo.announceForAccessibility` covers iOS. Seeing both on the same surface is intentional platform coverage, not redundancy. When reviewing code, do not "simplify" by removing one of the pair, and when the two mechanisms could double-announce the same change on Android, prefer the live region for passive state changes and the explicit announcement for action results.
+**Platform note.** `accessibilityLiveRegion` only works on Android; iOS ignores it. `AccessibilityInfo.announceForAccessibility` covers iOS. The presence of both on the same surface is intentional platform coverage, not redundancy — when reviewing code, do not "simplify" by removing one of the pair. When the two mechanisms could double-announce the same change on Android, prefer the live region for passive state changes and the explicit announcement for action results.
 
 ## Gesture-only interactions and custom actions
 
@@ -379,10 +379,11 @@ Verify these directly in code before finishing:
 - Important feedback is persistent instead of auto-dismissing.
 - Colour-only state changes are exposed semantically and flagged to the user, with second-cue suggestions, rather than silently redesigned.
 - Role, state, value, and label are accurate, and platform-paired props are not stripped as "redundant."
+- Adjustable/range controls expose `accessibilityRole="adjustable"`, `accessibilityValue` (`min`/`max`/`now`/`text`), and `increment`/`decrement` actions.
 
 ## Dynamic verification (accessibility tree)
 
-Code review only confirms that the right props are *written*; it cannot confirm they *reach the accessibility layer* on a real platform. When an Android emulator/device or iOS simulator/device is reachable, close that gap with the `accessibility-tree` MCP tools (`get_accessibility_tree_android`, `get_accessibility_tree_ios`) instead of asserting from code alone. If no device is reachable, skip this step and fall through to the manual handoff — do not block implementation work on it.
+Code review only confirms that the right props are *written*; it cannot confirm they *reach the accessibility layer* on a real platform. When an Android emulator/device or iOS simulator/device is reachable, close that gap with the `accessibility-tree` MCP tools (`get_accessibility_tree_android`, `get_accessibility_tree_ios`) instead of asserting from code alone. If no device is reachable, skip this step and fall through to the manual handoff — do not block implementation work on it. For device/simulator detection and WDA setup steps, see the `screen-reader-react-native` skill.
 
 **Workflow:**
 
@@ -412,3 +413,4 @@ Some things can only be confirmed by a human with a screen reader and device set
 - Confirm announcements are heard at the right moment and are not clipped by focus changes.
 - View the flow in grayscale and confirm every state change is still perceivable.
 - Confirm focus lands somewhere sensible after deletions, dismissals, and structural changes.
+- For adjustable controls, swipe up/down (VoiceOver/TalkBack) to confirm increment/decrement actually changes the value and the new value is announced.
