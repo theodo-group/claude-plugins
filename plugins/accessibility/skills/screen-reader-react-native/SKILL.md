@@ -15,15 +15,14 @@ Source code alone does not guarantee what a screen reader actually announces —
 
 ## Workflow
 
-1. **Fetch the accessibility tree.** See "Device setup and tree fetch." If no device or simulator is reachable, skip to step 2 using source alone, and note the gap in the final handoff.
-2. **Walk components in reading order**, top-left to bottom-right, splitting nested interactive elements into separate components. See "Identifying components."
-3. **Classify and apply the correct role** for each component. See "Roles."
+1. **Fetch the accessibility tree before analyzing anything.** See "Device setup and tree fetch" — auto-detect available devices/simulators and fetch via the MCP tools. If neither Android nor iOS is reachable, stop and ask the user to connect a device or boot a simulator; do not fall back to source-only analysis.
+2. **Walk components in reading order**, top-left to bottom-right, cross-referencing each against the fetched tree and splitting nested interactive elements into separate components. See "Identifying components."
+3. **Classify and apply the correct role** for each component. See "Roles" and "Applying a role."
 4. **Expose state** — disabled, selected, checked, busy, expanded — via `accessibilityState`. See "State."
 5. **Label or hide non-text content, and group related content** that should read as one unit. See "Labels, hints, and grouping."
-6. **Apply the fixes directly in source.**
-7. **Verify statically** against the "Final checklist" below.
-8. **Re-fetch the tree and diff** against the pre-edit snapshot to confirm each fix actually reached the accessibility layer. See "Dynamic verification."
-9. **Hand off what only a human with a screen reader can confirm.** See "Manual verification handoff."
+6. **Verify statically** against the "Final checklist" below.
+7. **Re-fetch the tree and diff** against the pre-edit snapshot to confirm each fix actually reached the accessibility layer. See "Dynamic verification."
+8. **Hand off what only a human with a screen reader can confirm.** See "Manual verification handoff."
 
 ## Device setup and tree fetch
 
@@ -139,7 +138,9 @@ Keep this first snapshot — it's the baseline for the diff in "Dynamic verifica
 
 ## Identifying components
 
-Start at the top left of the screen and identify the first component. If it has multiple interactive elements, split them into separate components — pay special attention to interactive elements nested inside other interactive elements, which need a refactor to remove the nesting while preserving the UX.
+Start at the top left of the screen and identify the first component, cross-referencing it against the matching node in the tree fetched in step 1 — the tree tells you what's actually exposed right now (a label, a role, or nothing at all), which the checklists below then evaluate against what it should expose. If it has multiple interactive elements, split them into separate components — pay special attention to interactive elements nested inside other interactive elements, which need a refactor to remove the nesting while preserving the UX.
+
+A component present in source but missing from the tree entirely (not just unlabeled) usually means a wrapping element is swallowing it — treat that as a finding on its own, not just an unlabeled node.
 
 ```jsx
 <HStack>
@@ -179,7 +180,7 @@ Determine the type of component using `accessibilityRole`. Common values, includ
 | `scrollbar` | Android only | A scroll bar |
 | `search` | iOS only | A text field that should be treated as a search field |
 | `spinbutton` | Android only | A button that opens a list of choices |
-| `summary` | both | Provides a quick summary of current conditions when the app first launches |
+| `summary` | iOS only | Provides a quick summary of current conditions when the app first launches |
 | `switch` | both | Can be turned on and off |
 | `tab` | Android only | A tab |
 | `tablist` | Android only | A list of tabs |
@@ -344,7 +345,7 @@ Add `accessibilityHint` only when the action isn't already obvious from role + l
 
 Verify these directly in code before finishing:
 
-- Every interactive element has a `accessibilityRole` appropriate to its platform (skip `TextInput`s and tab navigation).
+- Every interactive element has an `accessibilityRole` appropriate to its platform (skip `TextInput`s and tab navigation).
 - Nested interactive elements have been refactored so no interactive element is nested inside another.
 - Every element that can be disabled, selected, checked, busy, or expanded exposes that via `accessibilityState`.
 - Non-text content is either labeled/hinted or explicitly hidden (`importantForAccessibility="no"` + `accessibilityElementsHidden`), never left unlabeled.
@@ -358,7 +359,7 @@ Code review only confirms the right props are *written*; it cannot confirm they 
 
 **Workflow:**
 
-1. Match each node in the pre-edit tree to a component in the source, and match each component you plan to check to a node in the tree. A component with `accessible={false}` or `importantForAccessibility="no"` won't appear at all — confirm that's intentional (decorative) and not a real control silently missing from the tree.
+1. Match each node in the pre-edit tree to a component in the source, and match each component you plan to check to a node in the tree. If the matching component isn't already open, use `Glob` to enumerate candidate screen/component files (e.g. `**/*.tsx`) and `Grep` for the tree node's visible text, label, or `testID` to locate it. A component with `accessible={false}` or `importantForAccessibility="no"` won't appear at all — confirm that's intentional (decorative) and not a real control silently missing from the tree.
 2. Apply the fixes from the checklist above directly in source.
 3. Re-fetch the tree and diff it against the pre-edit snapshot.
 4. Confirm the expected label, role, state, and grouping actually changed in the new snapshot — a code edit does not guarantee the native accessibility layer picked it up on every platform quirk.

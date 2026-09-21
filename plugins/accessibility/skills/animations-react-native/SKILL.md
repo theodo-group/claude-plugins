@@ -2,7 +2,7 @@
 name: accessible-animations
 description: >
   Audit, implement, and review accessible animations in React Native and Reanimated. Use whenever work involves any animated or gesture-driven UI in React Native, even if accessibility is never mentioned: entering/exiting transitions, swipe or drag interactions, toasts and snackbars, bottom sheets, popovers, loading indicators, custom sliders or scrubbers, or animated state changes. Also use for explicitly accessibility-focused work: Reduce Motion, screen reader support for animated interfaces, accessibility actions, status announcements, or color-only animated state cues.
-allowed-tools: Bash Read Edit Write Grep Glob mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_android mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_ios
+allowed-tools: Bash Read Edit Write mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_android mcp__plugin_accessibility_accessibility-tree__get_accessibility_tree_ios
 ---
 
 # Accessible Animations
@@ -383,7 +383,7 @@ Verify these directly in code before finishing:
 
 ## Dynamic verification (accessibility tree)
 
-Code review only confirms that the right props are *written*; it cannot confirm they *reach the accessibility layer* on a real platform. When an Android emulator/device or iOS simulator/device is reachable, close that gap with the `accessibility-tree` MCP tools (`get_accessibility_tree_android`, `get_accessibility_tree_ios`) instead of asserting from code alone. If no device is reachable, skip this step and fall through to the manual handoff — do not block implementation work on it.
+Code review only confirms that the right props are *written*; it cannot confirm they *reach the accessibility layer* on a real platform. When an Android emulator/device or iOS simulator/device is reachable, close that gap with the `accessibility-tree` MCP tools (`get_accessibility_tree_android`, `get_accessibility_tree_ios`) instead of asserting from code alone. If no device is reachable, skip this step and fall through to the manual handoff — do not block implementation work on it. For device/simulator detection and WDA setup steps, see the `screen-reader-react-native` skill.
 
 **Workflow:**
 
