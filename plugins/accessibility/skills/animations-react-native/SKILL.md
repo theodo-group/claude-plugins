@@ -130,7 +130,7 @@ AccessibilityInfo.announceForAccessibility(
 
 Do not over-announce routine visual changes. Announce changes that affect task completion, state, navigation, or available actions.
 
-**Platform note.** `accessibilityLiveRegion` only works on Android; iOS ignores it. `AccessibilityInfo.announceForAccessibility` covers iOS. Seeing both on the same surface is intentional platform coverage, not redundancy. When reviewing code, do not "simplify" by removing one of the pair, and when the two mechanisms could double-announce the same change on Android, prefer the live region for passive state changes and the explicit announcement for action results.
+**Platform note.** `accessibilityLiveRegion` only works on Android; iOS ignores it. `AccessibilityInfo.announceForAccessibility` covers iOS. The presence of both on the same surface is intentional platform coverage, not redundancy — when reviewing code, do not "simplify" by removing one of the pair. When the two mechanisms could double-announce the same change on Android, prefer the live region for passive state changes and the explicit announcement for action results.
 
 ## Gesture-only interactions and custom actions
 
@@ -379,6 +379,7 @@ Verify these directly in code before finishing:
 - Important feedback is persistent instead of auto-dismissing.
 - Colour-only state changes are exposed semantically and flagged to the user, with second-cue suggestions, rather than silently redesigned.
 - Role, state, value, and label are accurate, and platform-paired props are not stripped as "redundant."
+- Adjustable/range controls expose `accessibilityRole="adjustable"`, `accessibilityValue` (`min`/`max`/`now`/`text`), and `increment`/`decrement` actions.
 
 ## Dynamic verification (accessibility tree)
 
@@ -412,3 +413,4 @@ Some things can only be confirmed by a human with a screen reader and device set
 - Confirm announcements are heard at the right moment and are not clipped by focus changes.
 - View the flow in grayscale and confirm every state change is still perceivable.
 - Confirm focus lands somewhere sensible after deletions, dismissals, and structural changes.
+- For adjustable controls, swipe up/down (VoiceOver/TalkBack) to confirm increment/decrement actually changes the value and the new value is announced.
