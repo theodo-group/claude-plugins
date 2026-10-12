@@ -153,7 +153,7 @@ A component present in source but missing from the tree entirely (not just unlab
 
 This is 2 components: a header and a button.
 
-Overlapping or absolutely-positioned elements (`zIndex`, custom overlays) can render in a different order for a screen reader than they appear visually — walking reading order from source alone can miss this, which is one reason to prefer the live tree (see "Dynamic verification") over static reading order assumptions whenever a device is reachable.
+Overlapping or absolutely-positioned elements (`zIndex`, custom overlays) can render in a different order for a screen reader than they appear visually — walking reading order from source alone can miss this, which is one reason to prefer the live tree (see "Dynamic verification") over static reading order assumptions whenever a device is reachable. On Android, TalkBack orders strictly by source/DOM position and ignores `zIndex` entirely — a `zIndex`-based overlay can sit visually on top while TalkBack still reads what's underneath. Avoid `zIndex`-based overlays (modals, dropdowns) for this reason; use a `Modal` or Portal component that isolates the accessibility tree on both platforms instead.
 
 ## Roles
 
@@ -296,6 +296,12 @@ If the element can be disabled, selected, checked, busy, or expanded, add `acces
 - Purely decorative → set `importantForAccessibility="no"` and `accessibilityElementsHidden={true}`. `accessible={false}` also works on individual elements, but never use it on an element that wraps other components — it can hide descendants that should still be reachable.
 - Not decorative → add `accessibilityLabel` or `accessibilityHint`. Example: for a coupon code with a copy icon, label the code itself and hint "double tap to copy."
 
+**Inline links in text:**
+VoiceOver/TalkBack reads a paragraph fully, then re-reads an inline link alone — this is expected behavior, not a bug. Don't add a custom `accessibilityLabel` to the paragraph's wrapper to suppress it; that overrides the inner text tree and can hide the link.
+
+**Tab item labels:**
+On Android, don't hardcode the role word ("tab", "navigation bar") into a tab item's `accessibilityLabel` — TalkBack's `tab`/`tablist` role and its "in horizontal bar" announcement already supply it. Keep an explicit position/count (e.g. "Home, tab 1 of 3") unless you've verified with TalkBack that this specific tab implementation already announces it.
+
 **Grouping:**
 Use `accessible={true}` on a wrapping `View` to make related elements read as one unit (e.g. a table row):
 
@@ -303,6 +309,32 @@ Use `accessible={true}` on a wrapping `View` to make related elements read as on
 <View accessible={true}>
   <Text>{label}</Text>
   <Text>{value}</Text>
+</View>
+```
+
+However, a custom `accessibilityLabel` on the wrapper doesn't automatically silence its interactive children — TalkBack/VoiceOver can still read a nested `Pressable` separately right after the group label, even with `accessible={false}` on it. When the wrapper's label already summarizes the children, hide them explicitly with `importantForAccessibility="no-hide-descendants"` (Android) and `accessibilityElementsHidden={true}` (iOS):
+
+❌ Reads the custom label, then reads the button text again:
+```jsx
+<View accessible={true} accessibilityLabel="Cart: 3 items. Proceed to checkout.">
+  <Text>3 items</Text>
+  <Pressable accessible={false} onPress={handleCheckout}>
+    <Text>Checkout</Text>
+  </Pressable>
+</View>
+```
+
+✅ Interactive children are masked; only the container label is read:
+```jsx
+<View accessible={true} accessibilityLabel="Cart: 3 items. Proceed to checkout." accessibilityRole="button">
+  <Text>3 items</Text>
+  <Pressable
+    onPress={handleCheckout}
+    importantForAccessibility="no-hide-descendants"
+    accessibilityElementsHidden={true}
+  >
+    <Text>Checkout</Text>
+  </Pressable>
 </View>
 ```
 
@@ -347,10 +379,12 @@ Verify these directly in code before finishing:
 
 - Every interactive element has an `accessibilityRole` appropriate to its platform (skip `TextInput`s and tab navigation).
 - Nested interactive elements have been refactored so no interactive element is nested inside another.
+- `zIndex` is never used to layer overlays/modals/dropdowns — use `Modal`/Portal instead.
 - Every element that can be disabled, selected, checked, busy, or expanded exposes that via `accessibilityState`.
 - Non-text content is either labeled/hinted or explicitly hidden (`importantForAccessibility="no"` + `accessibilityElementsHidden`), never left unlabeled.
 - `accessible={false}` is never applied to a wrapping element that has descendants meant to stay reachable.
 - Related content that should read as one unit is grouped with `accessible={true}` on the wrapper.
+- Wrapper `View`s with a custom `accessibilityLabel` summarizing interactive children explicitly hide those children (`importantForAccessibility="no-hide-descendants"` + `accessibilityElementsHidden`).
 - Hints exist only where role + label don't already make the action obvious, and don't restate what the role/label already say.
 
 ## Dynamic verification (accessibility tree)
